@@ -18,7 +18,6 @@ struct PairRequest {
 };
 
 struct UnpairClientRequest {
-  std::string client_id;
   rfl::Description<"The client ID to unpair", std::string> client_id;
 };
 
