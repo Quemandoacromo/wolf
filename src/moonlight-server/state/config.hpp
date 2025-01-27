@@ -65,6 +65,9 @@ inline std::optional<PairedClient> get_client_via_ssl(const Config &cfg, const s
   return get_client_via_ssl(cfg, x509::cert_from_string(client_cert));
 }
 
+/**
+ * Returns the first PairedClient with the given client_id
+ */
 inline std::size_t get_client_id(const PairedClient &current_client) {
   return std::hash<std::string>{}(current_client.client_cert);
 }

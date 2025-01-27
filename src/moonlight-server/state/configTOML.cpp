@@ -305,20 +305,6 @@ void unpair(const Config &cfg, const PairedClient &client) {
   rfl::toml::save(cfg.config_source, tml);
 }
 
-std::optional<PairedClient> get_client_by_id(const Config &cfg, const std::string &client_id) {
-    auto paired_clients = cfg.paired_clients->load();
-    auto search_result = std::find_if(paired_clients->begin(), 
-                                    paired_clients->end(),
-                                    [&client_id](const PairedClient &client) {
-        return client.app_state_folder == client_id;
-    });
-    
-    if (search_result != paired_clients->end()) {
-        return *search_result;
-    }
-    return std::nullopt;
-}
-
 void update_client_settings(const Config &cfg, 
                           const std::string &client_id,
                           const std::optional<std::string> &new_folder,
@@ -343,7 +329,7 @@ void update_client_settings(const Config &cfg,
     cfg.paired_clients->update([&](const state::PairedClientList &paired_clients) {
         return paired_clients
             | ranges::views::transform([&](const auto &client) {
-                if (client->app_state_folder == client_id) {
+                if (state::get_client_id(client) == client_id) {
                     return immer::box<PairedClient>(PairedClient{
                         .client_cert = client->client_cert,
                         .app_state_folder = new_folder.value_or(client->app_state_folder),
@@ -360,7 +346,7 @@ void update_client_settings(const Config &cfg,
     
     bool found = false;
     for (auto &toml_client : toml_config.paired_clients) {
-        if (toml_client.app_state_folder == client_id) {
+        if (state::get_client_id(toml_client) == client_id) {
             if (new_folder) {
                 toml_client.app_state_folder = *new_folder;
             }
