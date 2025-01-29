@@ -145,6 +145,6 @@ static moonlight::control::pkts::CONTROLLER_TYPE get_controller_type(const Contr
 std::optional<PairedClient> get_client_by_id(const Config &cfg, const std::string &client_id);
 void update_client_settings(const Config &cfg, 
                           const std::string &client_id,
-                          const std::string &new_folder,
-                          const wolf::config::ClientSettings &new_settings);
+                          const std::optional<std::string> &new_folder,
+                          const PartialClientSettings &settings_update);
 } // namespace state
