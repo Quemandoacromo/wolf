@@ -307,33 +307,39 @@ void UnixSocketServer::endpoint_RunnerStart(const wolf::api::HTTPRequest &req, s
 }
 
 void UnixSocketServer::endpoint_UpdateClientSettings(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
-  try {
-    auto payload_result = rfl::json::read<UpdateClientSettingsRequest>(req.body);
-    if (!payload_result) {
-      auto res = GenericErrorResponse{.error = "Invalid request format"};
-      send_http(socket, 400, rfl::json::write(res));
-      return;
-    }
-
-    const auto &payload = payload_result.value();
-
-    // Update the client settings
-    try {
-      state::update_client_settings(this->state_->app_state->config,
-                                    payload.client_id.value(),
-                                    payload.app_state_folder.value(),
-                                    payload.settings.value());
-
-      auto res = GenericSuccessResponse{.success = true};
-      send_http(socket, 200, rfl::json::write(res));
-    } catch (const std::runtime_error &e) {
-      auto res = GenericErrorResponse{.error = e.what()};
-      send_http(socket, 404, rfl::json::write(res));
-    }
-  } catch (const std::exception &e) {
-    auto res = GenericErrorResponse{.error = e.what()};
-    send_http(socket, 500, rfl::json::write(res));
+  auto payload_result = rfl::json::read<UpdateClientSettingsRequest>(req.body);
+  if (!payload_result) {
+    auto res = GenericErrorResponse{.error = "Invalid request format"};
+    send_http(socket, 400, rfl::json::write(res));
+    return;
   }
+
+  const auto &payload = payload_result.value();
+  auto current_client = state::get_client_by_id(this->state_->app_state->config, payload.client_id.value());
+  if (!current_client) {
+    auto res = GenericErrorResponse{.error = "Client not found"};
+    send_http(socket, 404, rfl::json::write(res));
+    return;
+  }
+
+  // Edit only the settings that are being passed in the payload
+  auto current_settings = current_client->settings;
+  auto new_settings = payload.settings.get();
+  auto merged_client = config::PairedClient{
+      .app_state_folder = payload.app_state_folder.get().value_or(current_client->app_state_folder),
+      .settings = config::ClientSettings{
+          .run_uid = new_settings.run_gid.value_or(current_settings.run_uid),
+          .run_gid = new_settings.run_gid.value_or(current_settings.run_gid),
+          .controllers_override = new_settings.controllers_override.value_or(current_settings.controllers_override),
+          .mouse_acceleration = new_settings.mouse_acceleration.value_or(current_settings.mouse_acceleration),
+          .v_scroll_acceleration = new_settings.v_scroll_acceleration.value_or(current_settings.v_scroll_acceleration),
+          .h_scroll_acceleration = new_settings.h_scroll_acceleration.value_or(current_settings.h_scroll_acceleration),
+      }};
+
+  update_client_settings(this->state_->app_state->config, std::stoull(payload.client_id.value()), merged_client);
+
+  auto res = GenericSuccessResponse{.success = true};
+  send_http(socket, 200, rfl::json::write(res));
 }
 
 } // namespace wolf::api

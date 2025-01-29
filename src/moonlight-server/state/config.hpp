@@ -152,8 +152,10 @@ static moonlight::control::pkts::CONTROLLER_TYPE get_controller_type(const Contr
 }
 
 std::optional<PairedClient> get_client_by_id(const Config &cfg, const std::string &client_id);
-void update_client_settings(const Config &cfg,
-                            const std::string &client_id,
-                            const std::optional<std::string> &new_folder,
-                            const PartialClientSettings &settings_update);
+
+/**
+ * Replaces the specified client_id with the updated_client
+ * Side effects: will save back the configuration to disk
+ */
+void update_client_settings(const Config &cfg, std::size_t client_id, const PairedClient &updated_client);
 } // namespace state
