@@ -48,7 +48,7 @@ struct PairedClientsResponse {
 struct UpdateClientSettingsRequest {
   rfl::Description<"The client ID to identify the client (derived from certificate)", std::string> client_id;
   rfl::Description<"New app state folder path (optional)", std::optional<std::string>> app_state_folder;
-  rfl::Description<"Client settings to update (only specified fields will be updated)", PartialClientSettings> settings;
+  rfl::Description<"Client settings to update (only specified fields will be updated)", state::PartialClientSettings> settings;
 };
 
 struct AppListResponse {

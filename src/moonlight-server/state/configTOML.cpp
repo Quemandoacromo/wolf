@@ -326,10 +326,12 @@ void update_client_settings(const Config &cfg,
     if (settings_update.h_scroll_acceleration) merged_settings.h_scroll_acceleration = *settings_update.h_scroll_acceleration;
 
     // Update the in-memory config atomically
+    auto client_id_num = std::stoull(client_id);
     cfg.paired_clients->update([&](const state::PairedClientList &paired_clients) {
         return paired_clients
-            | ranges::views::transform([&](const auto &client) {
-                if (state::get_client_id(client) == client_id) {
+            | ranges::views::transform([&](const immer::box<PairedClient>& client) -> immer::box<PairedClient> {
+                auto id = get_client_id(*client);
+                if (id == client_id_num) {
                     return immer::box<PairedClient>(PairedClient{
                         .client_cert = client->client_cert,
                         .app_state_folder = new_folder.value_or(client->app_state_folder),
@@ -346,7 +348,8 @@ void update_client_settings(const Config &cfg,
     
     bool found = false;
     for (auto &toml_client : toml_config.paired_clients) {
-        if (state::get_client_id(toml_client) == client_id) {
+        auto id = get_client_id(toml_client);
+        if (id == client_id_num) {
             if (new_folder) {
                 toml_client.app_state_folder = *new_folder;
             }
