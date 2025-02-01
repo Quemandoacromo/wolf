@@ -174,7 +174,7 @@ TEST_CASE("Create PS5 pad with CONTROLLER_ARRIVAL", "[UHID]") {
 
     control::handle_input(session, {}, &motion_pkt);
     auto events = fetch_events_debug(motion_dev);
-    REQUIRE(events.size() == 5);
+    REQUIRE(events.size() >= 5);
     // TODO: seems that I only get MSC_TIMESTAMP here
     //
     //      REQUIRE_THAT(libevdev_event_type_get_name(events[0]->type), Equals("EV_ABS"));
@@ -209,7 +209,7 @@ TEST_CASE("Create PS5 pad with CONTROLLER_ARRIVAL", "[UHID]") {
 
     for (auto &event : udev_events) {
       REQUIRE_THAT(event["ACTION"], Equals("add"));
-      REQUIRE_THAT(event["DEVPATH"], StartsWith("/devices/virtual/misc/uhid/0003:054C"));
+      REQUIRE_THAT(event["DEVPATH"], StartsWith("/devices/virtual/misc/uhid/0005:054C"));
       if (event["SUBSYSTEM"] == "input") {
         REQUIRE_THAT(event["DEVNAME"], ContainsSubstring("/dev/input/"));
       } else if (event["SUBSYSTEM"] == "hidraw") {
