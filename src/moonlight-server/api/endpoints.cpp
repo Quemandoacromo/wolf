@@ -15,9 +15,9 @@ void UnixSocketServer::endpoint_Events(const HTTPRequest &req, std::shared_ptr<U
 }
 
 void UnixSocketServer::endpoint_PendingPairRequest(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
-  auto requests = std::vector<PairRequest>();
+  auto requests = std::vector<PendingPairClient>();
   for (auto [secret, pair_request] : *(state_->app_state)->pairing_atom->load()) {
-    requests.push_back({.pair_secret = secret, .pin = pair_request->client_ip});
+    requests.push_back({.pair_secret = secret, .client_ip = pair_request->client_ip});
   }
   send_http(socket, 200, rfl::json::write(PendingPairRequestsResponse{.requests = requests}));
 }
@@ -44,11 +44,39 @@ void UnixSocketServer::endpoint_Pair(const HTTPRequest &req, std::shared_ptr<Uni
 void UnixSocketServer::endpoint_PairedClients(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto res = PairedClientsResponse{.success = true};
   auto clients = state_->app_state->config->paired_clients->load();
-  for (const auto &client : clients.get()) {
-    res.clients.push_back(
-        PairedClient{.client_id = state::get_client_id(client), .app_state_folder = client->app_state_folder});
+  for (const config::PairedClient &client : clients.get()) {
+    res.clients.push_back(PairedClient{.client_id = std::to_string(state::get_client_id(client)),
+                                       .app_state_folder = client.app_state_folder,
+                                       .settings = client.settings});
   }
   send_http(socket, 200, rfl::json::write(res));
+}
+
+void UnixSocketServer::endpoint_UnpairClient(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  try {
+    auto payload_result = rfl::json::read<UnpairClientRequest>(req.body);
+    if (!payload_result) {
+      auto res = GenericErrorResponse{.error = "Invalid request format"};
+      send_http(socket, 400, rfl::json::write(res));
+      return;
+    }
+
+    const auto &payload = payload_result.value(); // Unwrap the Result
+    auto client = state::get_client_by_id(this->state_->app_state->config, payload.client_id.value());
+    if (!client) {
+      auto res = GenericErrorResponse{.error = "Client not found"};
+      send_http(socket, 404, rfl::json::write(res));
+      return;
+    }
+
+    state::unpair(this->state_->app_state->config, *client);
+
+    auto res = GenericSuccessResponse{.success = true};
+    send_http(socket, 200, rfl::json::write(res));
+  } catch (const std::exception &e) {
+    auto res = GenericErrorResponse{.error = e.what()};
+    send_http(socket, 500, rfl::json::write(res));
+  }
 }
 
 void UnixSocketServer::endpoint_Apps(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
@@ -125,7 +153,7 @@ void UnixSocketServer::endpoint_StreamSessionAdd(const HTTPRequest &req, std::sh
       return;
     }
 
-    auto client = state::get_client_by_id(this->state_->app_state->config, std::stoul(ss.client_id));
+    auto client = state::get_client_by_id(this->state_->app_state->config, ss.client_id);
     if (!client) {
       logs::log(logs::warning, "[API] Invalid client_id: {}", ss.client_id);
       auto res = GenericErrorResponse{.error = "Invalid client_id"};
@@ -277,6 +305,43 @@ void UnixSocketServer::endpoint_RunnerStart(const wolf::api::HTTPRequest &req, s
     auto res = GenericErrorResponse{.error = event.error()->what()};
     send_http(socket, 500, rfl::json::write(res));
   }
+}
+
+void UnixSocketServer::endpoint_UpdateClientSettings(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto payload_result = rfl::json::read<UpdateClientSettingsRequest>(req.body);
+  if (!payload_result) {
+    auto res = GenericErrorResponse{.error = "Invalid request format"};
+    send_http(socket, 400, rfl::json::write(res));
+    return;
+  }
+
+  const auto &payload = payload_result.value();
+  auto current_client = state::get_client_by_id(this->state_->app_state->config, payload.client_id.value());
+  if (!current_client) {
+    auto res = GenericErrorResponse{.error = "Client not found"};
+    send_http(socket, 404, rfl::json::write(res));
+    return;
+  }
+
+  // Edit only the settings that are being passed in the payload
+  auto current_settings = current_client->settings;
+  auto new_settings = payload.settings.get().value_or(PartialClientSettings{});
+  auto merged_client = config::PairedClient{
+      .client_cert = current_client->client_cert, // Immutable, changing this would mean a new client
+      .app_state_folder = payload.app_state_folder.get().value_or(current_client->app_state_folder),
+      .settings = config::ClientSettings{
+          .run_uid = new_settings.run_gid.value_or(current_settings.run_uid),
+          .run_gid = new_settings.run_gid.value_or(current_settings.run_gid),
+          .controllers_override = new_settings.controllers_override.value_or(current_settings.controllers_override),
+          .mouse_acceleration = new_settings.mouse_acceleration.value_or(current_settings.mouse_acceleration),
+          .v_scroll_acceleration = new_settings.v_scroll_acceleration.value_or(current_settings.v_scroll_acceleration),
+          .h_scroll_acceleration = new_settings.h_scroll_acceleration.value_or(current_settings.h_scroll_acceleration),
+      }};
+
+  update_client_settings(this->state_->app_state->config, std::stoull(payload.client_id.value()), merged_client);
+
+  auto res = GenericSuccessResponse{.success = true};
+  send_http(socket, 200, rfl::json::write(res));
 }
 
 } // namespace wolf::api

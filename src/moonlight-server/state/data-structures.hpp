@@ -225,5 +225,4 @@ const static immer::array<moonlight::DisplayMode> DISPLAY_CONFIGURATIONS = {{
     {.width = 7680, .height = 4320, .refreshRate = 90},
     {.width = 7680, .height = 4320, .refreshRate = 60},
 }};
-
 } // namespace state

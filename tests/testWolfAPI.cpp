@@ -3,10 +3,11 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include <curl/curl.h>
 #include <helpers/tsqueue.hpp>
+#include <rfl/toml.hpp>
 #include <state/config.hpp>
 
-using Catch::Matchers::Equals;
 using Catch::Matchers::ContainsSubstring;
+using Catch::Matchers::Equals;
 
 using namespace wolf::api;
 using curl_ptr = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;
@@ -84,9 +85,14 @@ req(CURL *handle,
 TEST_CASE("Pair APIs", "[API]") {
   auto event_bus = std::make_shared<events::EventBusType>();
   auto running_sessions = std::make_shared<immer::atom<immer::vector<events::StreamSession>>>();
-  auto config = immer::box<state::Config>(state::load_or_default("config.test.toml", event_bus, running_sessions));
+  auto config = state::load_or_default("config.test.toml", event_bus, running_sessions);
+  { // Avoid overriding the test config file (shared across multiple tests)
+    config.config_source = "config.test.EDITED.toml";
+    auto tml = rfl::toml::load<wolf::config::WolfConfig, rfl::DefaultIfMissing>("config.test.toml").value();
+    rfl::toml::save(config.config_source, tml);
+  }
   auto app_state = immer::box<state::AppState>(state::AppState{
-      .config = config,
+      .config = immer::box<state::Config>(config),
       .pairing_cache = std::make_shared<immer::atom<immer::map<std::string, state::PairCache>>>(),
       .pairing_atom = std::make_shared<immer::atom<immer::map<std::string, immer::box<events::PairSignal>>>>(),
       .event_bus = event_bus,
@@ -110,8 +116,16 @@ TEST_CASE("Pair APIs", "[API]") {
   response = req(curl.get(), HTTPMethod::GET, "http://localhost/api/v1/clients");
   REQUIRE(response);
   REQUIRE_THAT(response->second,
-               Equals("{\"success\":true,\"clients\":[{\"client_id\":10594003729173467913,\"app_state_folder\":\"some/"
-                      "folder\"}]}"));
+               Equals("{\"success\":true,\"clients\":["
+                      "{\"client_id\":\"10594003729173467913\","
+                      "\"app_state_folder\":\"some/folder\","
+                      "\"settings\":{"
+                      "\"run_uid\":1234,"
+                      "\"run_gid\":5678,"
+                      "\"controllers_override\":[\"PS\"],"
+                      "\"mouse_acceleration\":2.5,"
+                      "\"v_scroll_acceleration\":1.5,"
+                      "\"h_scroll_acceleration\":10.199999809265137}}]}"));
 
   auto pair_promise = std::make_shared<boost::promise<std::string>>();
 
@@ -125,7 +139,7 @@ TEST_CASE("Pair APIs", "[API]") {
   response = req(curl.get(), HTTPMethod::GET, "http://localhost/api/v1/pair/pending");
   REQUIRE(response);
   REQUIRE_THAT(response->second,
-               Equals("{\"success\":true,\"requests\":[{\"pair_secret\":\"secret\",\"pin\":\"1234\"}]}"));
+               Equals("{\"success\":true,\"requests\":[{\"pair_secret\":\"secret\",\"client_ip\":\"1234\"}]}"));
 
   // Let's complete the pairing process
   response = req(curl.get(),
@@ -135,6 +149,34 @@ TEST_CASE("Pair APIs", "[API]") {
   REQUIRE(response);
   REQUIRE_THAT(response->second, Equals("{\"success\":true}"));
   REQUIRE(pair_promise->get_future().get() == "1234");
+
+  { // Test out changing client settings
+    REQUIRE_THAT(app_state->config.get().paired_clients->load().get()[0]->app_state_folder, Equals("some/folder"));
+    response = req(curl.get(),
+                   HTTPMethod::POST,
+                   "http://localhost/api/v1/clients/settings",
+                   "{\"client_id\":\"10594003729173467913\",\"app_state_folder\":\"OVERRIDDEN\", \"settings\":{}}");
+    REQUIRE(response);
+    REQUIRE_THAT(response->second, Equals("{\"success\":true}"));
+    REQUIRE_THAT(app_state->config.get().paired_clients->load().get()[0]->app_state_folder, Equals("OVERRIDDEN"));
+
+    // Check back that we've correctly updated the config file
+    auto tml = rfl::toml::load<wolf::config::WolfConfig, rfl::DefaultIfMissing>(config.config_source).value();
+    REQUIRE(tml.paired_clients[0].app_state_folder == "OVERRIDDEN");
+  }
+
+  { // Test out unpairing
+    response = req(curl.get(),
+                   HTTPMethod::POST,
+                   "http://localhost/api/v1/unpair/client",
+                   "{\"client_id\":\"10594003729173467913\"}");
+    REQUIRE(response);
+    REQUIRE_THAT(response->second, Equals("{\"success\":true}"));
+
+    // Check back that we've correctly updated the config file
+    auto tml = rfl::toml::load<wolf::config::WolfConfig, rfl::DefaultIfMissing>(config.config_source).value();
+    REQUIRE(tml.paired_clients.empty());
+  }
 }
 
 TEST_CASE("APPs APIs", "[API]") {

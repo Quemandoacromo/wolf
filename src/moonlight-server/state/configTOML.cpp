@@ -305,4 +305,30 @@ void unpair(const Config &cfg, const PairedClient &client) {
   rfl::toml::save(cfg.config_source, tml);
 }
 
+void update_client_settings(const Config &cfg, std::size_t client_id, const PairedClient &updated_client) {
+
+  auto update_client_fn = [&](immer::box<PairedClient> client) -> immer::box<PairedClient> {
+    if (get_client_id(client) == client_id) {
+      return immer::box<PairedClient>(updated_client);
+    }
+    return client;
+  };
+
+  cfg.paired_clients->update([&](const PairedClientList &paired_clients) {
+    return paired_clients |                             //
+           ranges::views::transform(update_client_fn) | //
+           ranges::to<PairedClientList>();
+  });
+
+  // Update the TOML file
+  auto tml = rfl::toml::load<WolfConfig, rfl::DefaultIfMissing>(cfg.config_source).value();
+
+  tml.paired_clients = tml.paired_clients |                         //
+                       ranges::views::transform(update_client_fn) | //
+                       ranges::to<std::vector<PairedClient>>();
+
+  // Save back to file
+  rfl::toml::save(cfg.config_source, tml);
+}
+
 } // namespace state

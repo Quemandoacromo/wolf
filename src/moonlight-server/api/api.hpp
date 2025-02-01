@@ -12,9 +12,18 @@ using namespace wolf::core;
 
 void start_server(immer::box<state::AppState> app_state);
 
+struct PendingPairClient {
+  std::string pair_secret;
+  rfl::Description<"The IP of the remote Moonlight client", std::string> client_ip;
+};
+
 struct PairRequest {
   std::string pair_secret;
   rfl::Description<"The PIN created by the remote Moonlight client", std::string> pin;
+};
+
+struct UnpairClientRequest {
+  rfl::Description<"The client ID to unpair", std::string> client_id;
 };
 
 struct GenericSuccessResponse {
@@ -28,17 +37,34 @@ struct GenericErrorResponse {
 
 struct PendingPairRequestsResponse {
   bool success = true;
-  std::vector<PairRequest> requests;
+  std::vector<PendingPairClient> requests;
 };
 
 struct PairedClient {
-  std::size_t client_id;
+  std::string client_id;
   std::string app_state_folder;
+  config::ClientSettings settings = {};
 };
 
 struct PairedClientsResponse {
   bool success = true;
   std::vector<PairedClient> clients;
+};
+
+struct PartialClientSettings {
+  std::optional<uint> run_uid;
+  std::optional<uint> run_gid;
+  std::optional<std::vector<wolf::config::ControllerType>> controllers_override;
+  std::optional<float> mouse_acceleration;
+  std::optional<float> v_scroll_acceleration;
+  std::optional<float> h_scroll_acceleration;
+};
+
+struct UpdateClientSettingsRequest {
+  rfl::Description<"The client ID to identify the client (derived from certificate)", std::string> client_id;
+  rfl::Description<"New app state folder path (optional)", std::optional<std::string>> app_state_folder;
+  rfl::Description<"Client settings to update (only specified fields will be updated)", std::optional<PartialClientSettings>>
+      settings;
 };
 
 struct AppListResponse {
@@ -114,7 +140,7 @@ private:
   void endpoint_Apps(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void endpoint_AddApp(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void endpoint_RemoveApp(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
-
+  void endpoint_UnpairClient(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void endpoint_StreamSessions(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void endpoint_StreamSessionAdd(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void endpoint_StreamSessionStart(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
@@ -123,6 +149,8 @@ private:
   void endpoint_StreamSessionHandleInput(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
 
   void endpoint_RunnerStart(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
+
+  void endpoint_UpdateClientSettings(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
 
   void sse_broadcast(const std::string &payload);
   void sse_keepalive(const boost::system::error_code &e);

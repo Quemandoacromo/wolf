@@ -40,9 +40,11 @@ void unpair(const Config &cfg, const PairedClient &client);
  */
 inline std::optional<PairedClient> get_client_via_ssl(const Config &cfg, x509::x509_ptr client_cert) {
   auto paired_clients = cfg.paired_clients->load();
-  auto search_result =
-      std::find_if(paired_clients->begin(), paired_clients->end(), [&client_cert](const PairedClient &pair_client) {
-        auto paired_cert = x509::cert_from_string(pair_client.client_cert);
+  auto search_result = std::find_if(
+      paired_clients->begin(),
+      paired_clients->end(),
+      [&client_cert](const immer::box<PairedClient> &pair_client) {
+        auto paired_cert = x509::cert_from_string(pair_client->client_cert);
         auto verification_error = x509::verification_error(paired_cert, client_cert);
         if (verification_error) {
           logs::log(logs::trace, "X509 certificate verification error: {}", verification_error.value());
@@ -52,7 +54,7 @@ inline std::optional<PairedClient> get_client_via_ssl(const Config &cfg, x509::x
         }
       });
   if (search_result != paired_clients->end()) {
-    return *search_result;
+    return **search_result;
   } else {
     return std::nullopt;
   }
@@ -65,21 +67,31 @@ inline std::optional<PairedClient> get_client_via_ssl(const Config &cfg, const s
   return get_client_via_ssl(cfg, x509::cert_from_string(client_cert));
 }
 
+/**
+ * Returns the client ID for a given client
+ */
 inline std::size_t get_client_id(const PairedClient &current_client) {
   return std::hash<std::string>{}(current_client.client_cert);
 }
 
-inline std::optional<PairedClient> get_client_by_id(const Config &cfg, std::size_t client_id) {
+/**
+ * Returns the first PairedClient with the given client_id
+ */
+inline std::optional<PairedClient> get_client_by_id(const Config &cfg, const std::string &client_id) {
   auto paired_clients = cfg.paired_clients->load();
-  auto search_result =
-      std::find_if(paired_clients->begin(), paired_clients->end(), [client_id](const PairedClient &pair_client) {
-        return get_client_id(pair_client) == client_id;
-      });
+  auto client_id_num = std::stoull(client_id);
+
+  auto search_result = std::find_if(paired_clients->begin(),
+                                    paired_clients->end(),
+                                    [client_id_num](const immer::box<PairedClient> &pair_client) -> bool {
+                                      auto id = get_client_id(*pair_client);
+                                      return id == client_id_num;
+                                    });
+
   if (search_result != paired_clients->end()) {
-    return *search_result;
-  } else {
-    return std::nullopt;
+    return **search_result;
   }
+  return std::nullopt;
 }
 
 /**
@@ -138,4 +150,12 @@ static moonlight::control::pkts::CONTROLLER_TYPE get_controller_type(const Contr
   }
   return moonlight::control::pkts::CONTROLLER_TYPE::AUTO;
 }
+
+std::optional<PairedClient> get_client_by_id(const Config &cfg, const std::string &client_id);
+
+/**
+ * Replaces the specified client_id with the updated_client
+ * Side effects: will save back the configuration to disk
+ */
+void update_client_settings(const Config &cfg, std::size_t client_id, const PairedClient &updated_client);
 } // namespace state

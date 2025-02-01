@@ -176,6 +176,65 @@
         }
       }
     },
+    "/api/v1/clients/settings": {
+      "post": {
+        "summary": "Update client settings",
+        "description": "Update a client's settings including app state folder and client-specific settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/wolf__api__UpdateClientSettingsRequest"
+              }
+            }
+          },
+          "description": "",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/wolf__api__GenericSuccessResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/wolf__api__GenericErrorResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/wolf__api__GenericErrorResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/wolf__api__GenericErrorResponse"
+                }
+              }
+            },
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/pair/client": {
       "post": {
         "summary": "Pair a client",
@@ -448,6 +507,45 @@
           }
         }
       }
+    },
+    "/api/v1/unpair/client": {
+      "post": {
+        "summary": "Unpair a client",
+        "description": "",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/wolf__api__UnpairClientRequest"
+              }
+            }
+          },
+          "description": "",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/wolf__api__GenericSuccessResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/wolf__api__GenericErrorResponse"
+                }
+              }
+            },
+            "description": ""
+          }
+        }
+      }
     }
   },
   "components": {
@@ -640,12 +738,16 @@
             "type": "string"
           },
           "client_id": {
-            "type": "integer"
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/wolf__config__ClientSettings"
           }
         },
         "required": [
           "app_state_folder",
-          "client_id"
+          "client_id",
+          "settings"
         ]
       },
       "wolf__api__PairedClientsResponse": {
@@ -666,13 +768,104 @@
           "success"
         ]
       },
+      "wolf__api__PartialClientSettings": {
+        "type": "object",
+        "properties": {
+          "controllers_override": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "XBOX",
+                    "PS",
+                    "NINTENDO",
+                    "AUTO"
+                  ]
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "h_scroll_acceleration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mouse_acceleration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_gid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_uid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "v_scroll_acceleration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": []
+      },
+      "wolf__api__PendingPairClient": {
+        "type": "object",
+        "properties": {
+          "client_ip": {
+            "type": "string",
+            "description": "The IP of the remote Moonlight client"
+          },
+          "pair_secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_ip",
+          "pair_secret"
+        ]
+      },
       "wolf__api__PendingPairRequestsResponse": {
         "type": "object",
         "properties": {
           "requests": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/wolf__api__PairRequest"
+              "$ref": "#/components/schemas/wolf__api__PendingPairClient"
             }
           },
           "success": {
@@ -801,6 +994,54 @@
         },
         "required": [
           "session_id"
+        ]
+      },
+      "wolf__api__UnpairClientRequest": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "The client ID to unpair"
+          }
+        },
+        "required": [
+          "client_id"
+        ]
+      },
+      "wolf__api__UpdateClientSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "app_state_folder": {
+            "description": "New app state folder path (optional)",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_id": {
+            "type": "string",
+            "description": "The client ID to identify the client (derived from certificate)"
+          },
+          "settings": {
+            "description": "Client settings to update (only specified fields will be updated)",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/wolf__api__PartialClientSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "app_state_folder",
+          "client_id",
+          "settings"
         ]
       },
       "wolf__config__AppCMD__tagged": {
