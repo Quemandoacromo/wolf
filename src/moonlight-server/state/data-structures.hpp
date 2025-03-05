@@ -56,6 +56,7 @@ inline int get_port(STANDARD_PORTS_MAPPING port) {
 }
 
 using PairedClientList = immer::vector<immer::box<wolf::config::PairedClient>>;
+using ProfilesList = immer::vector<immer::box<events::Profile>>;
 
 enum Encoder {
   NVIDIA,
@@ -83,9 +84,11 @@ struct Config {
   std::shared_ptr<immer::atom<PairedClientList>> paired_clients;
 
   /**
-   * List of available Apps
+   * List of available Profiles,
+   * each profile contains a list of apps.
+   * Profiles will be shown in WolfUI
    */
-  std::shared_ptr<immer::atom<immer::vector<immer::box<events::App>>>> apps;
+  std::shared_ptr<immer::atom<ProfilesList>> profiles;
 };
 
 /**

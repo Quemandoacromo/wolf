@@ -29,10 +29,12 @@ TEST_CASE("LocalState load TOML", "[LocalState]") {
   REQUIRE(state.support_hevc);
 
   SECTION("Apps") {
-    auto apps = state.apps->load().get();
+    auto moonlight_profile = state::get_moonlight_profile(state);
+    REQUIRE(moonlight_profile);
+    immer::vector<immer::box<events::App>> apps = moonlight_profile.value()->apps->load();
     REQUIRE_THAT(apps, Catch::Matchers::SizeIs(2));
 
-    auto first_app = apps[0];
+    auto first_app = apps.at(0);
     REQUIRE_THAT(first_app->base.title, Equals("Firefox"));
     REQUIRE_THAT(first_app->base.id, Equals("304556286"));
     REQUIRE_THAT(first_app->base.icon_png_path.value(), Equals("firefox.png"));
@@ -44,7 +46,7 @@ TEST_CASE("LocalState load TOML", "[LocalState]") {
     auto first_app_runner = rfl::get<AppDocker>(first_app->runner->serialize().variant());
     REQUIRE_THAT(first_app_runner.image, Equals("ghcr.io/games-on-whales/firefox:master"));
 
-    auto second_app = apps[1];
+    auto second_app = apps.at(1);
     REQUIRE_THAT(second_app->base.title, Equals("Test ball"));
     REQUIRE_THAT(second_app->base.id, Equals("378473508"));
     REQUIRE(second_app->base.icon_png_path.has_value() == false);
@@ -483,14 +485,17 @@ TEST_CASE("applist", "[MoonlightProtocol]") {
   auto event_bus = std::make_shared<events::EventBusType>();
   auto running_sessions = std::make_shared<immer::atom<immer::vector<events::StreamSession>>>();
   auto cfg = state::load_or_default("config.test.toml", event_bus, running_sessions);
-  auto base_apps = cfg.apps->load().get() | views::transform([](auto app) { return app->base; }) |
+  auto moonlight_profile = state::get_moonlight_profile(cfg);
+  REQUIRE(moonlight_profile);
+  immer::vector<immer::box<events::App>> apps = moonlight_profile.value()->apps->load();
+  auto base_apps = apps | views::transform([](auto app) { return app->base; }) |
                    to<immer::vector<moonlight::App>>();
   auto result = applist(base_apps);
   REQUIRE(xml_to_str(result) == "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
                                 "<root status_code=\"200\">"
-          "<App><IsHdrSupported>0</IsHdrSupported><AppTitle>Firefox</AppTitle><ID>304556286</ID></App>"
-          "<App><IsHdrSupported>0</IsHdrSupported><AppTitle>Test ball</AppTitle><ID>378473508</ID></App>"
-          "</root>");
+                                "<App><IsHdrSupported>0</IsHdrSupported><AppTitle>Firefox</AppTitle><ID>304556286</ID></App>"
+                                "<App><IsHdrSupported>0</IsHdrSupported><AppTitle>Test ball</AppTitle><ID>378473508</ID></App>"
+                                "</root>");
 }
 
 TEST_CASE("launch", "[MoonlightProtocol]") {
@@ -527,8 +532,8 @@ TEST_CASE("Multiple users", "[HTTP]") {
   app_state.running_sessions->update([session1](auto &sessions) { return sessions.push_back(*session1); });
   auto session2 = endpoints::https::create_run_session(client1_headers, client1_ip, client1, app_state, app1);
 
-  REQUIRE(session2->video_stream_port == 48100);
-  REQUIRE(session2->audio_stream_port == 48200);
+  REQUIRE(session2->video_stream_port == 48101);
+  REQUIRE(session2->audio_stream_port == 48201);
 
   // Saving only the second session
   app_state.running_sessions->update(
@@ -546,6 +551,6 @@ TEST_CASE("Multiple users", "[HTTP]") {
   // We should now assign the 2nd port (even if we have 3 sessions) because of port clash
   auto session4 = endpoints::https::create_run_session(client1_headers, client1_ip, client1, app_state, app1);
 
-  REQUIRE(session4->video_stream_port == 48100);
-  REQUIRE(session4->audio_stream_port == 48200);
+  REQUIRE(session4->video_stream_port == 48102);
+  REQUIRE(session4->audio_stream_port == 48202);
 }
