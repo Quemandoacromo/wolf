@@ -104,9 +104,7 @@ void UnixSocketServer::endpoint_AddApp(const HTTPRequest &req, std::shared_ptr<U
             ranges::views::transform([app = app.value(), this](const immer::box<events::Profile> &profile) {
               if (profile->id == events::MOONLIGHT_PROFILE_ID) {
                 profile->apps->update([app, this](auto &apps) {
-                  return apps.push_back(rfl::Reflector<events::App>::to(app,
-                                                                        this->state_->app_state->event_bus,
-                                                                        this->state_->app_state->running_sessions));
+                  return apps.push_back(rfl::Reflector<events::App>::to(app, this->state_->app_state->event_bus));
                 });
               }
               return profile;
@@ -169,13 +167,11 @@ void UnixSocketServer::endpoint_AddProfile(const HTTPRequest &req, std::shared_p
     auto profiles = state_->app_state->config->profiles->load().get();
     state::update_profiles(
         state_->app_state->config,
-        profiles.push_back(rfl::Reflector<events::Profile>::to(p,
-                                                               this->state_->app_state->event_bus,
-                                                               this->state_->app_state->running_sessions)));
+        profiles.push_back(rfl::Reflector<events::Profile>::to(p, this->state_->app_state->event_bus)));
     send_http(socket, 200, rfl::json::write(GenericSuccessResponse{.success = true}));
   } else {
-    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, profile_req.error()->what());
-    auto res = GenericErrorResponse{.error = profile_req.error()->what()};
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, profile_req.error().what());
+    auto res = GenericErrorResponse{.error = profile_req.error().what()};
     send_http(socket, 500, rfl::json::write(res));
   }
 }
@@ -194,8 +190,8 @@ void UnixSocketServer::endpoint_RemoveProfile(const HTTPRequest &req, std::share
                                ranges::to<state::ProfilesList>());
     send_http(socket, 200, rfl::json::write(GenericSuccessResponse{.success = true}));
   } else {
-    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, profile_req.error()->what());
-    auto res = GenericErrorResponse{.error = profile_req.error()->what()};
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, profile_req.error().what());
+    auto res = GenericErrorResponse{.error = profile_req.error().what()};
     send_http(socket, 500, rfl::json::write(res));
   }
 }
