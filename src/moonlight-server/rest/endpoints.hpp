@@ -48,6 +48,7 @@ std::string get_host_ip(const std::shared_ptr<typename SimpleWeb::Server<T>::Req
 template <class T>
 void serverinfo(const std::shared_ptr<typename SimpleWeb::Server<T>::Response> &response,
                 const std::shared_ptr<typename SimpleWeb::Server<T>::Request> &request,
+                std::optional<events::StreamSession> stream_session,
                 const immer::box<state::AppState> &state) {
   log_req<T>(request);
 
@@ -57,9 +58,8 @@ void serverinfo(const std::shared_ptr<typename SimpleWeb::Server<T>::Response> &
   auto host = state->host;
   bool is_https = std::is_same_v<SimpleWeb::HTTPS, T>;
 
-  auto session = state::get_session_by_ip(state->running_sessions->load(), get_client_ip<T>(request));
-  bool is_busy = session.has_value();
-  int app_id = session.has_value() ? std::stoi(session->app->base.id) : 0;
+  bool is_busy = stream_session.has_value();
+  int app_id = stream_session.has_value() ? std::stoi(stream_session->app->base.id) : 0;
 
   auto local_ip = get_host_ip<T>(request, state);
 
@@ -393,25 +393,6 @@ auto create_run_session(const SimpleWeb::CaseInsensitiveMultimap &headers,
   return std::move(base_session);
 }
 
-void start_rtp_ping(const events::StreamSession &session) {
-
-  // Video RTP Ping
-  rtp::wait_for_ping(session.video_stream_port,
-                     [ev_bus = session.event_bus](unsigned short client_port, const std::string &client_ip) {
-                       logs::log(logs::trace, "[PING] video from {}:{}", client_ip, client_port);
-                       auto ev = events::RTPVideoPingEvent{.client_ip = client_ip, .client_port = client_port};
-                       ev_bus->fire_event(immer::box<events::RTPVideoPingEvent>(ev));
-                     });
-
-  // Audio RTP Ping
-  rtp::wait_for_ping(session.audio_stream_port,
-                     [ev_bus = session.event_bus](unsigned short client_port, const std::string &client_ip) {
-                       logs::log(logs::trace, "[PING] audio from {}:{}", client_ip, client_port);
-                       auto ev = events::RTPAudioPingEvent{.client_ip = client_ip, .client_port = client_port};
-                       ev_bus->fire_event(immer::box<events::RTPAudioPingEvent>(ev));
-                     });
-}
-
 void launch(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Response> &response,
             const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Request> &request,
             const state::PairedClient &current_client,
@@ -431,7 +412,7 @@ void launch(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::
   state->running_sessions->update(
       [new_session](const immer::vector<events::StreamSession> &ses_v) { return ses_v.push_back(*new_session); });
 
-  start_rtp_ping(*new_session);
+  rtp::start_rtp_ping(*new_session);
 
   auto xml =
       moonlight::launch_success(get_host_ip<SimpleWeb::HTTPS>(request, state), std::to_string(state::RTSP_SETUP_PORT));
@@ -458,7 +439,7 @@ void resume(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::
     new_session->pen_tablet = std::move(old_session->pen_tablet);
     new_session->touch_screen = std::move(old_session->touch_screen);
 
-    start_rtp_ping(*new_session);
+    rtp::start_rtp_ping(*new_session);
 
     state->running_sessions->update([&old_session, new_session](const immer::vector<events::StreamSession> ses_v) {
       return state::remove_session(ses_v, old_session.value()).push_back(*new_session);

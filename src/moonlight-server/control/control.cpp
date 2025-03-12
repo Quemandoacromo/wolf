@@ -97,6 +97,16 @@ bool encrypt_and_send(std::string_view payload,
   }
 }
 
+std::optional<StreamSession>
+get_current_session(const state::SessionsAtoms &running_sessions, std::string_view client_ip, uint32_t connect_data) {
+  for (const StreamSession &session : *running_sessions->load()) {
+    if (session.enet_secret_payload == connect_data || session.ip == client_ip) {
+      return session;
+    }
+  }
+  return {};
+}
+
 void run_control(int port,
                  const state::SessionsAtoms &running_sessions,
                  const std::shared_ptr<events::EventBusType> &event_bus,
@@ -124,7 +134,7 @@ void run_control(int port,
   while (true) {
     if (enet_host_service(host.get(), &event, timeout.count()) > 0) {
       auto [client_ip, client_port] = get_ip((sockaddr *)&event.peer->address.address);
-      auto client_session = state::get_session_by_ip(running_sessions->load(), client_ip);
+      auto client_session = get_current_session(running_sessions, client_ip, event.data);
       if (client_session) {
         switch (event.type) {
         case ENET_EVENT_TYPE_NONE:

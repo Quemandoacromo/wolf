@@ -1,5 +1,7 @@
 #pragma once
 
+#include <events/events.hpp>
+
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <helpers/logger.hpp>
@@ -8,15 +10,26 @@ namespace rtp {
 
 using boost::asio::ip::udp;
 
+struct RTPPingEvent {
+  std::string client_ip;
+  unsigned short client_port;
+  /**
+   * Moonlight protocol extension to support IP-less clients
+   * will send back what was originally exchanged over RTSP
+   * (see: X-SS-Ping-Payload and X-SS-Connect-Data)
+   */
+  std::optional<std::array<char, 16>> payload;
+};
+
+using on_rtp_ping_fn = std::function<void(const RTPPingEvent &)>;
+
 /**
  * Generic UDP server, adapted from:
  * https://www.boost.org/doc/libs/1_81_0/doc/html/boost_asio/tutorial/tutdaytime6/src.html
  */
 class UDP_Server : public boost::enable_shared_from_this<UDP_Server> {
 public:
-  UDP_Server(
-      unsigned short port,
-      const std::function<void(unsigned short /* client_port */, const std::string & /* client_ip */)> &callback);
+  UDP_Server(unsigned short port, const on_rtp_ping_fn &callback);
 
   ~UDP_Server();
 
@@ -29,12 +42,12 @@ private:
   boost::asio::io_context io_context;
   udp::socket socket_;
   udp::endpoint remote_endpoint_;
-  boost::array<char, 1> recv_buffer_{};
-  std::function<void(unsigned short /* client_port */, const std::string & /* client_ip */)> callback;
+  boost::array<char, 2048> recv_buffer_{};
+  on_rtp_ping_fn callback;
 };
 
-void wait_for_ping(
-    unsigned short port,
-    const std::function<void(unsigned short /* client_port */, const std::string & /* client_ip */)> &callback);
+void wait_for_ping(unsigned short port, const on_rtp_ping_fn &callback);
+
+void start_rtp_ping(const wolf::core::events::StreamSession &session);
 
 } // namespace rtp

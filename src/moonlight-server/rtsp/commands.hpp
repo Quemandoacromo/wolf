@@ -109,27 +109,32 @@ describe(const RTSP_PACKET &req, const events::StreamSession &session) {
 
 RTSP_PACKET setup(const RTSP_PACKET &req, const events::StreamSession &session) {
 
-  int service_port;
   auto type = req.request.stream.type;
   logs::log(logs::trace, "[RTSP] setup type: {}", type);
 
+  std::map<std::string, std::string> options = {{"Session", "DEADBEEFCAFE;timeout = 90"}};
+
   switch (utils::hash(type)) {
-  case utils::hash("audio"):
-    service_port = session.audio_stream_port;
+  case utils::hash("audio"): {
+    options["Transport"] = "server_port=" + std::to_string(session.audio_stream_port);
+    options["X-SS-Ping-Payload"] = {session.rtp_secret_payload.begin(), session.rtp_secret_payload.end()};
     break;
-  case utils::hash("video"):
-    service_port = session.video_stream_port;
+  }
+  case utils::hash("video"): {
+    options["Transport"] = "server_port=" + std::to_string(session.video_stream_port);
+    options["X-SS-Ping-Payload"] = {session.rtp_secret_payload.begin(), session.rtp_secret_payload.end()};
     break;
-  case utils::hash("control"):
-    service_port = state::CONTROL_PORT;
+  }
+  case utils::hash("control"): {
+    options["Transport"] = "server_port=" + std::to_string(state::CONTROL_PORT);
+    options["X-SS-Connect-Data"] = std::to_string(session.enet_secret_payload);
     break;
+  }
   default:
     return error_msg(404, "NOT FOUND", req.seq_number);
   }
 
-  auto session_opt = "DEADBEEFCAFE;timeout = 90"s;
-  return ok_msg(req.seq_number,
-                {{"Session", session_opt}, {"Transport", "server_port=" + std::to_string(service_port)}});
+  return ok_msg(req.seq_number, options);
 }
 
 /**
@@ -229,7 +234,9 @@ announce(const RTSP_PACKET &req, const events::StreamSession &session) {
       .color_range = (csc & 0x1) ? events::ColorRange::JPEG : events::ColorRange::MPEG,
       .color_space = events::ColorSpace(csc >> 1),
 
-      .client_ip = session.ip};
+      .client_ip = session.ip,
+      .rtp_secret_payload = session.rtp_secret_payload,
+  };
   session.event_bus->fire_event(immer::box<events::VideoSession>(video));
 
   // Audio session
@@ -246,6 +253,7 @@ announce(const RTSP_PACKET &req, const events::StreamSession &session) {
 
       .port = session.audio_stream_port,
       .client_ip = session.ip,
+      .rtp_secret_payload = session.rtp_secret_payload,
 
       .packet_duration = args["x-nv-aqos.packetDuration"].value_or(5),
       .audio_mode = audio_mode};

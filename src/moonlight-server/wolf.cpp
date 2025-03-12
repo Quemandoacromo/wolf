@@ -362,9 +362,10 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
       }));
 
   struct PingInfo {
-    unsigned short port;
     std::string ip;
+    unsigned short port;
   };
+
   // Video streaming pipeline
   handlers.push_back(app_state->event_bus->register_handler<immer::box<events::VideoSession>>(
       [=](const immer::box<events::VideoSession> &sess) {
@@ -375,19 +376,15 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
           auto ev_handler = app_state->event_bus->register_handler<immer::box<events::RTPVideoPingEvent>>(
               [pp = std::ref(ping_promise), &called, sess](const immer::box<events::RTPVideoPingEvent> &ping_ev) {
                 std::call_once(called, [=]() { // We'll keep receiving PING requests, but we only want the first one
-                  auto ip = sess->client_ip;
-                  bool matches = ping_ev->client_ip == ip;
-
-                  if (auto client_ip = utils::get_env("WOLF_STREAM_CLIENT_IP")) {
-                    logs::log(logs::debug, "Client IP override: {}", client_ip);
-                    matches |= ip == std::string(client_ip);
-                  }
-
-                  if (matches) {
-                    pp.get().set_value({
-                      .ip = ping_ev->client_ip,
-                      .port = ping_ev->client_port
-                    }); // This throws when set multiple times
+                  if (ping_ev->payload) {
+                    if (ping_ev->payload.value() == sess->rtp_secret_payload) {
+                      logs::log(logs::debug, "Matched RTP secret payload for video session {}", sess->session_id);
+                      pp.get().set_value({.ip = ping_ev->client_ip, .port = ping_ev->client_port});
+                    }
+                  } else if (ping_ev->client_ip == sess->client_ip) {
+                    logs::log(logs::debug, "Matched client IP for video session {}", sess->session_id);
+                    pp.get().set_value({.ip = ping_ev->client_ip,
+                                        .port = ping_ev->client_port}); // This throws when set multiple times
                   }
                 });
               });
@@ -437,20 +434,15 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
           auto ev_handler = app_state->event_bus->register_handler<immer::box<events::RTPAudioPingEvent>>(
               [pp = std::ref(ping_promise), &called, sess](const immer::box<events::RTPAudioPingEvent> &ping_ev) {
                 std::call_once(called, [=]() { // We'll keep receiving PING requests, but we only want the first one
-                  auto ip = sess->client_ip;
-                  bool matches = ping_ev->client_ip == ip;
-
-                  if (auto client_ip = utils::get_env("WOLF_STREAM_CLIENT_IP")) {
-                    logs::log(logs::debug, "Client IP override: {}", client_ip);
-                    matches |= ip == std::string(client_ip);
-                  }
-
-
-                  if (matches) {
-                    pp.get().set_value({
-                      .ip = ping_ev->client_ip,
-                      .port = ping_ev->client_port
-                    }); // This throws when set multiple times
+                  if (ping_ev->payload) {
+                    if (ping_ev->payload.value() == sess->rtp_secret_payload) {
+                      logs::log(logs::debug, "Matched RTP secret payload for audio session {}", sess->session_id);
+                      pp.get().set_value({.ip = ping_ev->client_ip, .port = ping_ev->client_port});
+                    }
+                  } else if (ping_ev->client_ip == sess->client_ip) {
+                    logs::log(logs::debug, "Matched client IP for audio session {}", sess->session_id);
+                    pp.get().set_value({.ip = ping_ev->client_ip,
+                                        .port = ping_ev->client_port}); // This throws when set multiple times
                   }
                 });
               });

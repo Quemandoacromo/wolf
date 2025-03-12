@@ -90,12 +90,23 @@ inline std::shared_ptr<events::StreamSession> create_stream_session(immer::box<s
   auto video_stream_port = get_next_available_port(state->running_sessions->load(), true);
   auto audio_stream_port = get_next_available_port(state->running_sessions->load(), false);
 
+  auto rtp_secret = crypto::random(16);
+  std::array<char, 16> rtp_secret_payload;
+  std::copy(rtp_secret.begin(), rtp_secret.end(), rtp_secret_payload.begin());
+
+  auto enet_secret = crypto::random(4);
+  uint32_t enet_secret_payload;
+  std::memcpy(&enet_secret_payload, enet_secret.data(), 4);
   auto session = events::StreamSession{.display_mode = display_mode,
                                        .audio_channel_count = audio_channel_count,
                                        .event_bus = state->event_bus,
                                        .client_settings = current_client.settings,
                                        .app = std::make_shared<events::App>(run_app),
                                        .app_state_folder = full_path.string(),
+
+                                       // Moonlight protocol extension to support IP-less connections
+                                       .rtp_secret_payload = rtp_secret_payload,
+                                       .enet_secret_payload = enet_secret_payload,
 
                                        // client info
                                        .session_id = state::get_client_id(current_client),
