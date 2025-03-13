@@ -29,3 +29,5 @@
 
 *** xref:protocols:control-specs.adoc[Control (via ENET)]
 **** xref:protocols:input-data.adoc[]
+
+* xref:ROOT:faq.adoc[]
