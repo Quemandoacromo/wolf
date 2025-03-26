@@ -27,6 +27,7 @@ enum PACKET_TYPE : std::uint16_t {
   RUMBLE_TRIGGERS = boost::endian::little_to_native(0x5500),
   MOTION_EVENT = boost::endian::little_to_native(0x5501),
   RGB_LED_EVENT = boost::endian::little_to_native(0x5502),
+  ADAPTIVE_TRIGGER_EVENT = boost::endian::little_to_native(0x5503),
 };
 
 enum INPUT_TYPE : int {
@@ -343,6 +344,15 @@ struct ControlRGBLedPacket {
   std::uint8_t b;
 };
 
+static constexpr std::uint8_t DS_EFFECT_PAYLOAD_SIZE = 10;
+
+struct ControlAdaptiveTriggerPacket {
+  ControlPacket header;
+
+  std::uint16_t controller_number;
+  inputtino::PS5Joypad::TriggerEffect effect;
+};
+
 struct ControlEncryptedPacket {
   ControlPacket header; // Always 0x0001 (see PACKET_TYPE ENCRYPTED)
   std::uint32_t seq;    // Monotonically increasing sequence number (used as IV for AES-GCM)
@@ -441,6 +451,8 @@ static constexpr const char *packet_type_to_str(pkts::PACKET_TYPE p) noexcept {
     return "MOTION_EVENT";
   case pkts::RGB_LED_EVENT:
     return "RGB_LED_EVENT";
+  case pkts::ADAPTIVE_TRIGGER_EVENT:
+    return "ADAPTIVE_TRIGGER_EVENT";
   }
   return "Unrecognised";
 }

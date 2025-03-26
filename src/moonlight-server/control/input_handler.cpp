@@ -48,6 +48,18 @@ std::shared_ptr<events::JoypadTypes> create_new_joypad(const events::StreamSessi
     encrypt_and_send(plaintext, aes_key, *clients, session_id);
   });
 
+  auto on_adaptive_trigger_fn = ([clients = &connected_clients,
+                                  controller_number,
+                                  session_id = session.session_id,
+                                  aes_key = session.aes_key](const inputtino::PS5Joypad::TriggerEffect &effect) {
+    auto rumble_pkt = ControlAdaptiveTriggerPacket{
+        .header{.type = ADAPTIVE_TRIGGER_EVENT, .length = sizeof(ControlAdaptiveTriggerPacket) - sizeof(ControlPacket)},
+        .controller_number = boost::endian::native_to_little((uint16_t)controller_number),
+        .effect = effect};
+    std::string plaintext = {(char *)&rumble_pkt, sizeof(rumble_pkt)};
+    encrypt_and_send(plaintext, aes_key, *clients, session_id);
+  });
+
   std::shared_ptr<events::JoypadTypes> new_pad;
   auto controllers_override = session.client_settings->controllers_override;
   auto final_type = controllers_override.size() > controller_number ? controllers_override[controller_number]
@@ -97,6 +109,7 @@ std::shared_ptr<events::JoypadTypes> create_new_joypad(const events::StreamSessi
     } else {
       (*result).set_on_rumble(on_rumble_fn);
       (*result).set_on_led(on_led_fn);
+      (*result).set_on_trigger_effect(on_adaptive_trigger_fn);
       new_pad = std::make_shared<events::JoypadTypes>(std::move(*result));
 
       // Let's wait for the kernel to pick it up and mount the /dev/ devices
