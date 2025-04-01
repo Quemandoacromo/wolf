@@ -94,6 +94,7 @@ template <> struct Reflector<events::Profile> {
     std::string name;
     std::string id;
     std::string icon_png_path;
+    std::optional<std::vector<short>> pin;
     std::vector<Reflector<events::App>::ReflType> apps;
   };
 
@@ -103,7 +104,7 @@ template <> struct Reflector<events::Profile> {
     for (const auto &app : apps_boxed) {
       apps.push_back(Reflector<events::App>::from(*app));
     }
-    return {.name = v.name, .id = v.id, .icon_png_path = v.icon_png_path, .apps = apps};
+    return {.name = v.name, .id = v.id, .icon_png_path = v.icon_png_path, .pin = v.pin, .apps = apps};
   }
 
   static events::Profile to(const ReflType &v, const std::shared_ptr<events::EventBusType> &ev_bus) {
@@ -116,6 +117,7 @@ template <> struct Reflector<events::Profile> {
     return {.id = v.id,
             .name = v.name,
             .icon_png_path = v.icon_png_path,
+            .pin = v.pin,
             .apps = std::make_shared<immer::atom<immer::vector<immer::box<events::App>>>>(parsed_apps)};
   }
 };
@@ -173,6 +175,7 @@ template <> struct Reflector<events::Lobby> {
   struct ReflType {
     std::string id;
     std::string name;
+    std::string started_by_profile_id;
     bool pin_required;
     bool stop_when_everyone_leaves;
     Reflector<events::Runner>::ReflType runner;
@@ -183,6 +186,7 @@ template <> struct Reflector<events::Lobby> {
     immer::vector<immer::box<std::string>> connected_sessions = v.connected_sessions->load();
     return {.id = v.id,
             .name = v.name,
+            .started_by_profile_id = v.started_by_profile_id,
             .pin_required = v.pin.has_value(),
             .stop_when_everyone_leaves = v.stop_when_everyone_leaves,
             .runner = v.runner->serialize(),

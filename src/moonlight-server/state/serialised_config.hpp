@@ -115,6 +115,7 @@ struct Profile {
   std::string id;
   std::optional<std::string> name;
   std::optional<std::string> icon_png_path;
+  std::optional<std::vector<short>> pin;
 
   std::vector<BaseApp> apps;
 };

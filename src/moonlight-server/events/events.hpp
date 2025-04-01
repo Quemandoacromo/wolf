@@ -81,6 +81,12 @@ struct Profile {
   const std::string name;
   const std::string icon_png_path;
 
+  /**
+   * The pin that is required to access the profile
+   * If this is not set, then the profile is open to everyone
+   */
+  std::optional<std::vector<short>> pin;
+
   std::shared_ptr<immer::atom<immer::vector<immer::box<App>>>> apps;
 };
 
@@ -93,9 +99,10 @@ constexpr std::string_view MOONLIGHT_PROFILE_ID = "moonlight-profile-id";
 struct Lobby {
   const std::string id;
   const std::string name;
+  const std::string started_by_profile_id;
 
   /**
-   * The pin that is required to join the lobby
+   * The pin that is required to join and control the lobby
    * If this is not set, then the lobby is open to everyone
    */
   std::optional<std::vector<short>> pin;
@@ -144,6 +151,7 @@ struct AudioSettings {
 
 struct CreateLobbyEvent {
   const std::string id;
+  std::string profile_id;
   const std::string name;
   std::optional<std::vector<short>> pin = std::nullopt;
   const bool stop_when_everyone_leaves;

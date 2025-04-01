@@ -120,6 +120,7 @@ struct StreamSessionHandleInputRequest {
 };
 
 struct CreateLobbyRequest {
+  rfl::Description<"The profile that originally created the lobby", std::string> profile_id;
   std::string name;
   rfl::Description<"If present, the pin that is required to join the lobby."
                    "If this is not set, then the lobby is open to everyone",

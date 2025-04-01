@@ -386,6 +386,7 @@ Config load_or_default(const std::string &source,
                     return events::Profile{.id = profile.id,
                                            .name = profile.name.value_or(""),
                                            .icon_png_path = profile.icon_png_path.value_or(""),
+                                           .pin = profile.pin,
                                            .apps = parse_apps(profile.apps,
                                                               default_app_render_node,
                                                               default_gst_render_node,
@@ -472,6 +473,7 @@ void update_profiles(const Config &cfg, const ProfilesList &profiles) {
                        .id = p->id,
                        .name = p->name,
                        .icon_png_path = p->icon_png_path,
+                       .pin = p->pin,
                        .apps = p->apps->load().get() | //
                                ranges::views::transform([](const immer::box<events::App> &app) {
                                  return BaseApp{.title = app->base.title,
