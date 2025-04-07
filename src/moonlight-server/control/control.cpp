@@ -153,7 +153,7 @@ void run_control(int port,
             return;
           }
         }
-        logs::log(logs::warning, "Client not found for session: {}", ev->session_id);
+        logs::log(logs::debug, "[ENET] Client not found for session: {}", ev->session_id);
       });
 
   while (true) {

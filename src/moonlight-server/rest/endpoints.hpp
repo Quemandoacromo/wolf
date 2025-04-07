@@ -346,7 +346,7 @@ void appasset(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>
   }
   auto app = state::get_app_by_id(state->config, app_id.value());
   if (!app || !app.value()->base.icon_png_path) {
-    logs::log(logs::warning, "[HTTP] Can't find icon_png_path for app with id: {}", app_id.value());
+    logs::log(logs::trace, "[HTTP] Can't find icon_png_path for app with id: {}", app_id.value());
     server_error<SimpleWeb::HTTPS>(response);
     return;
   }
@@ -421,7 +421,7 @@ void launch(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::
   state->running_sessions->update(
       [new_session](const immer::vector<events::StreamSession> &ses_v) { return ses_v.push_back(*new_session); });
 
-  rtp::start_rtp_ping(*new_session);
+  rtp::start_rtp_ping(new_session->video_stream_port, new_session->audio_stream_port, new_session->event_bus);
 
   auto rtsp_ip = get_rtsp_ip_string(get_host_ip<SimpleWeb::HTTPS>(request, state), *new_session);
   auto xml = moonlight::launch_success(rtsp_ip, std::to_string(state::RTSP_SETUP_PORT));
@@ -448,7 +448,7 @@ void resume(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::
     new_session->pen_tablet = std::move(old_session->pen_tablet);
     new_session->touch_screen = std::move(old_session->touch_screen);
 
-    rtp::start_rtp_ping(*new_session);
+    rtp::start_rtp_ping(new_session->video_stream_port, new_session->audio_stream_port, new_session->event_bus);
 
     state->running_sessions->update([&old_session, new_session](const immer::vector<events::StreamSession> ses_v) {
       return state::remove_session(ses_v, old_session.value()).push_back(*new_session);

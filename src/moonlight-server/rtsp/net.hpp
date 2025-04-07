@@ -63,10 +63,10 @@ public:
     }
     for (const events::StreamSession &session : sessions) {
       if (session.rtsp_fake_ip == packet.request.uri.ip || host_option == session.rtsp_fake_ip) {
-        logs::log(logs::trace, "[RTSP] found session by matching payload: {}", session.rtsp_fake_ip);
+        logs::log(logs::debug, "[RTSP] found session by matching payload: {}", session.rtsp_fake_ip);
         return session;
       } else if ((host_option == "0.0.0.0" || host_option.empty()) && session.ip == user_ip) {
-        logs::log(logs::trace, "[RTSP] found session by matching IP: {}", session.ip);
+        logs::log(logs::debug, "[RTSP] found session by matching IP: {}", session.ip);
         return session;
       }
     }

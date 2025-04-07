@@ -27,7 +27,7 @@ using namespace std::string_literals;
 using namespace std::chrono_literals;
 using namespace wolf::core;
 
-static constexpr int DEFAULT_SESSION_TIMEOUT_MILLIS = 4000;
+static constexpr int DEFAULT_SESSION_TIMEOUT_MILLIS = 10000;
 
 /**
  * @brief Will try to load the config file and fallback to defaults
@@ -361,130 +361,77 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
         }).detach();
       }));
 
-  struct PingInfo {
-    std::string ip;
-    unsigned short port;
-  };
+  std::shared_ptr<immer::atom<events::video_session_list>> video_waiting_list =
+      std::make_shared<immer::atom<events::video_session_list>>(events::video_session_list{});
 
   // Video streaming pipeline
   handlers.push_back(app_state->event_bus->register_handler<immer::box<events::VideoSession>>(
-      [=](const immer::box<events::VideoSession> &sess) {
-        std::thread([=]() {
-          boost::promise<PingInfo> ping_promise;
-          auto ping_fut = ping_promise.get_future();
-          std::once_flag called;
-          auto ev_handler = app_state->event_bus->register_handler<immer::box<events::RTPVideoPingEvent>>(
-              [pp = std::ref(ping_promise), &called, sess](const immer::box<events::RTPVideoPingEvent> &ping_ev) {
-                std::call_once(called, [=]() { // We'll keep receiving PING requests, but we only want the first one
-                  if (ping_ev->payload) {
-                    if (ping_ev->payload.value() == sess->rtp_secret_payload) {
-                      logs::log(logs::debug, "Matched RTP secret payload for video session {}", sess->session_id);
-                      pp.get().set_value({.ip = ping_ev->client_ip, .port = ping_ev->client_port});
-                    }
-                  } else if (ping_ev->client_ip == sess->client_ip) {
-                    logs::log(logs::debug, "Matched client IP for video session {}", sess->session_id);
-                    pp.get().set_value({.ip = ping_ev->client_ip,
-                                        .port = ping_ev->client_port}); // This throws when set multiple times
-                  }
-                });
-              });
-
-          std::shared_ptr<std::atomic_bool> cancel_job = std::make_shared<std::atomic<bool>>(false);
-          auto cancel_event = app_state->event_bus->register_handler<immer::box<events::VideoSession>>(
-              [=](const immer::box<events::VideoSession> &new_sess) {
-                if (new_sess->session_id == sess->session_id) {
-                  // A new VideoSession has been queued whilst we still haven't received a PING
-                  *cancel_job = true;
-                }
-              });
-
-          logs::log(logs::debug, "Video session {}, waiting for PING...", sess->session_id);
-
-          // Stop here until we get a PING
-          std::string client_ip = "";
-          unsigned short client_port = 0;
-          if (sess->wait_for_ping) {
-            auto status = ping_fut.wait_for(boost::chrono::milliseconds(DEFAULT_SESSION_TIMEOUT_MILLIS));
-            if (status != boost::future_status::ready) {
-              logs::log(logs::warning, "Video session {} timed out waiting for PING", sess->session_id);
-              return;
-            }
-            auto ping_info = ping_fut.get();
-            client_port = ping_info.port;
-            client_ip = ping_info.ip;
-            cancel_event.unregister();
-            ev_handler.unregister();
-
-            if (*cancel_job) {
-              return;
-            }
-          }
-
-          streaming::start_streaming_video(sess, app_state->event_bus, client_ip, client_port);
-        }).detach();
+      [video_waiting_list](const immer::box<events::VideoSession> &sess) {
+        video_waiting_list->update(
+            [=](const events::video_session_list &sessions) { return sessions.push_back(sess.get()); });
       }));
+
+  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::RTPVideoPingEvent>>(
+      [ev_bus = app_state->event_bus, video_waiting_list](const immer::box<events::RTPVideoPingEvent> &ping_ev) {
+        for (immer::box<events::VideoSession> sess : video_waiting_list->load().get()) {
+          // TODO: no payload? Legacy IP matching?
+          if (sess->rtp_secret_payload == ping_ev->payload) {
+            // Found a session waiting for a ping, remove it from the list (we want to call this once)
+            video_waiting_list->update([=](const events::video_session_list &sessions) {
+              return sessions //
+                     | ranges::views::filter([=](const immer::box<events::VideoSession> &s) {
+                         return s->session_id != sess->session_id;
+                       }) //
+                     | ranges::to<events::video_session_list>();
+            });
+            // Start streaming
+            std::thread([=]() {
+              streaming::start_streaming_video(sess, ev_bus, ping_ev->client_ip, ping_ev->client_port);
+            }).detach();
+          }
+        }
+      }));
+
+  std::shared_ptr<immer::atom<events::audio_session_list>> audio_waiting_list =
+      std::make_shared<immer::atom<events::audio_session_list>>(events::audio_session_list{});
 
   // Audio streaming pipeline
   handlers.push_back(app_state->event_bus->register_handler<immer::box<events::AudioSession>>(
-      [=](const immer::box<events::AudioSession> &sess) {
-        std::thread([=]() {
-          boost::promise<PingInfo> ping_promise;
-          auto ping_fut = ping_promise.get_future();
-          std::once_flag called;
-          auto ev_handler = app_state->event_bus->register_handler<immer::box<events::RTPAudioPingEvent>>(
-              [pp = std::ref(ping_promise), &called, sess](const immer::box<events::RTPAudioPingEvent> &ping_ev) {
-                std::call_once(called, [=]() { // We'll keep receiving PING requests, but we only want the first one
-                  if (ping_ev->payload) {
-                    if (ping_ev->payload.value() == sess->rtp_secret_payload) {
-                      logs::log(logs::debug, "Matched RTP secret payload for audio session {}", sess->session_id);
-                      pp.get().set_value({.ip = ping_ev->client_ip, .port = ping_ev->client_port});
-                    }
-                  } else if (ping_ev->client_ip == sess->client_ip) {
-                    logs::log(logs::debug, "Matched client IP for audio session {}", sess->session_id);
-                    pp.get().set_value({.ip = ping_ev->client_ip,
-                                        .port = ping_ev->client_port}); // This throws when set multiple times
-                  }
-                });
-              });
+      [audio_waiting_list](const immer::box<events::AudioSession> &sess) {
+        audio_waiting_list->update(
+            [=](const events::audio_session_list &sessions) { return sessions.push_back(sess.get()); });
+      }));
 
-          std::shared_ptr<std::atomic_bool> cancel_job = std::make_shared<std::atomic<bool>>(false);
-          auto cancel_event = app_state->event_bus->register_handler<immer::box<events::AudioSession>>(
-              [=](const immer::box<events::AudioSession> &new_sess) {
-                if (new_sess->session_id == sess->session_id) {
-                  // A new AudioSession has been queued whilst we still haven't received a PING
-                  *cancel_job = true;
-                }
-              });
+  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::RTPAudioPingEvent>>(
+      [audio_waiting_list, audio_server, ev_bus = app_state->event_bus](
+          const immer::box<events::RTPAudioPingEvent> &ping_ev) {
+        for (immer::box<events::AudioSession> sess : audio_waiting_list->load().get()) {
+          // TODO: no payload? Legacy IP matching?
+          if (sess->rtp_secret_payload == ping_ev->payload) {
+            // Found a session waiting for a ping, remove it from the list (we want to call this once)
+            audio_waiting_list->update([=](const events::audio_session_list &sessions) {
+              return sessions //
+                     | ranges::views::filter([=](const immer::box<events::AudioSession> &s) {
+                         return s->session_id != sess->session_id;
+                       }) //
+                     | ranges::to<events::audio_session_list>();
+            });
+            std::thread([=]() {
+              // Start streaming
+              auto audio_server_name = audio_server ? audio::get_server_name(audio_server->server)
+                                                    : std::optional<std::string>();
+              auto sink_name = fmt::format("virtual_sink_{}.monitor", sess->session_id);
+              auto server_name = audio_server_name ? audio_server_name.value() : "";
 
-          logs::log(logs::debug, "Audio session {}, waiting for PING...", sess->session_id);
-
-          // Stop here until we get a PING
-          std::string client_ip = "";
-          unsigned short client_port = 0;
-          if (sess->wait_for_ping) {
-            auto status = ping_fut.wait_for(boost::chrono::milliseconds(DEFAULT_SESSION_TIMEOUT_MILLIS));
-            if (status != boost::future_status::ready) {
-              logs::log(logs::warning, "Audio session {} timed out waiting for PING", sess->session_id);
-              return;
-            }
-            auto ping_info = ping_fut.get();
-            client_port = ping_info.port;
-            client_ip = ping_info.ip;
-            cancel_event.unregister();
-            ev_handler.unregister();
-
-            if (*cancel_job) {
-              return;
-            }
+              streaming::start_streaming_audio(sess,
+                                               ev_bus,
+                                               ping_ev->client_ip,
+                                               ping_ev->client_port,
+                                               sink_name,
+                                               server_name);
+            }).detach();
           }
-
-          auto audio_server_name = audio_server ? audio::get_server_name(audio_server->server)
-                                                : std::optional<std::string>();
-          auto sink_name = fmt::format("virtual_sink_{}.monitor", sess->session_id);
-          auto server_name = audio_server_name ? audio_server_name.value() : "";
-
-          streaming::start_streaming_audio(sess, app_state->event_bus, client_ip, client_port, sink_name, server_name);
-        }).detach();
+        }
       }));
 
   return handlers.persistent();

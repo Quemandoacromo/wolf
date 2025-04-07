@@ -18,7 +18,7 @@ struct RTPPingEvent {
    * will send back what was originally exchanged over RTSP
    * (see: X-SS-Ping-Payload and X-SS-Connect-Data)
    */
-  std::optional<std::array<uint8_t, 16>> payload;
+  std::optional<std::array<char, 16>> payload;
 };
 
 using on_rtp_ping_fn = std::function<void(const RTPPingEvent &)>;
@@ -48,6 +48,6 @@ private:
 
 void wait_for_ping(unsigned short port, const on_rtp_ping_fn &callback);
 
-void start_rtp_ping(const wolf::core::events::StreamSession &session);
+void start_rtp_ping(unsigned short video_port, unsigned short audio_port, std::shared_ptr<wolf::core::events::EventBusType> event_bus);
 
 } // namespace rtp

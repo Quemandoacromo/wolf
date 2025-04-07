@@ -181,7 +181,7 @@ void UnixSocketServer::endpoint_StreamSessionAdd(const HTTPRequest &req, std::sh
         [new_session](const immer::vector<events::StreamSession> &ses_v) { return ses_v.push_back(*new_session); });
     state_->app_state->event_bus->fire_event(immer::box<events::StreamSession>(*new_session));
 
-    rtp::start_rtp_ping(*new_session);
+    rtp::start_rtp_ping(new_session->video_stream_port, new_session->audio_stream_port, new_session->event_bus);
 
     auto res = StreamSessionCreated{.success = true, .session_id = std::to_string(new_session->session_id)};
     send_http(socket, 200, rfl::json::write(res));

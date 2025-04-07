@@ -22,6 +22,7 @@ void UDP_Server::run(std::chrono::milliseconds timeout) {
 }
 
 void UDP_Server::start_receive() {
+  remote_endpoint_ = udp::endpoint();
   socket_.async_receive_from(boost::asio::buffer(recv_buffer_),
                              remote_endpoint_,
                              0,
@@ -37,19 +38,12 @@ void UDP_Server::handle_receive(const boost::system::error_code &error, std::siz
     auto client_port = remote_endpoint_.port();
 
     if (bytes_transferred == 4) {
-      logs::log(logs::trace, "[RTP] Received ping from {}:{}", client_ip, client_port);
       callback({.client_ip = client_ip, .client_port = client_port, .payload = {}});
     } else if (bytes_transferred >= sizeof(moonlight::SS_PING)) {
-      logs::log(logs::trace, "[RTP] Received ping from {}:{} with payload", client_ip, client_port);
-
       auto ping = (moonlight::SS_PING *)recv_buffer_.data();
       callback({.client_ip = client_ip, .client_port = client_port, .payload = ping->payload});
     }
-
-    // We'll keep receiving pings and sending callback events until the timeout elapsed.
-    // This is because we don't know if downstream they are ready to start the session.
-    // Downstream will make sure to only send one ping per session
-    std::this_thread::sleep_for(std::chrono::milliseconds(250)); // let's avoid spamming though
+    // Continue to receive more data
     start_receive();
   } else {
     logs::log(logs::debug, "[RTP] Error receiving ping: {}", error.message());
@@ -74,23 +68,25 @@ void wait_for_ping(unsigned short port, const on_rtp_ping_fn &callback) {
   thread.detach();
 }
 
-void start_rtp_ping(const wolf::core::events::StreamSession &session) {
+void start_rtp_ping(unsigned short video_port,
+                    unsigned short audio_port,
+                    std::shared_ptr<wolf::core::events::EventBusType> event_bus) {
   // Video RTP Ping
-  wait_for_ping(session.video_stream_port, [ev_bus = session.event_bus](const RTPPingEvent &ping) {
+  wait_for_ping(video_port, [event_bus](const RTPPingEvent &ping) {
     logs::log(logs::trace, "[PING] video from {}:{}", ping.client_ip, ping.client_port);
     auto ev = wolf::core::events::RTPVideoPingEvent{.client_ip = ping.client_ip,
                                                     .client_port = ping.client_port,
                                                     .payload = ping.payload};
-    ev_bus->fire_event(immer::box<wolf::core::events::RTPVideoPingEvent>(ev));
+    event_bus->fire_event(immer::box<wolf::core::events::RTPVideoPingEvent>(ev));
   });
 
   // Audio RTP Ping
-  wait_for_ping(session.audio_stream_port, [ev_bus = session.event_bus](const RTPPingEvent &ping) {
+  wait_for_ping(audio_port, [event_bus](const RTPPingEvent &ping) {
     logs::log(logs::trace, "[PING] audio from {}:{}", ping.client_ip, ping.client_port);
     auto ev = wolf::core::events::RTPAudioPingEvent{.client_ip = ping.client_ip,
                                                     .client_port = ping.client_port,
                                                     .payload = ping.payload};
-    ev_bus->fire_event(immer::box<wolf::core::events::RTPAudioPingEvent>(ev));
+    event_bus->fire_event(immer::box<wolf::core::events::RTPAudioPingEvent>(ev));
   });
 }
 
