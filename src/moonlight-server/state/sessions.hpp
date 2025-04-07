@@ -64,13 +64,20 @@ inline std::shared_ptr<events::StreamSession> create_stream_session(immer::box<s
   auto video_stream_port = get_next_available_port(state->running_sessions->load(), true);
   auto audio_stream_port = get_next_available_port(state->running_sessions->load(), false);
 
-  auto rtp_secret = crypto::random(16);
-  std::array<uint8_t, 16> rtp_secret_payload;
-  std::copy(rtp_secret.begin(), rtp_secret.end(), rtp_secret_payload.begin());
+  std::random_device rd;
+  std::mt19937 generator(rd());
 
-  auto enet_secret = crypto::random(4);
-  uint32_t enet_secret_payload;
-  std::memcpy(&enet_secret_payload, enet_secret.data(), 4);
+  std::uniform_int_distribution<> chars(33, 126); // ASCII values for printable character
+  std::array<char, 16> rtp_secret_payload;
+  for (auto &c : rtp_secret_payload) {
+    c = static_cast<char>(chars(generator));
+  }
+
+  std::uniform_int_distribution<u_int32_t> uints(0, UINT32_MAX);
+
+  std::uniform_int_distribution<> ints(0, 255);
+  auto rtsp_fake_ip = fmt::format("{}.{}.{}.{}", ints(generator), ints(generator), ints(generator), ints(generator));
+
   auto session = events::StreamSession{.display_mode = display_mode,
                                        .audio_channel_count = audio_channel_count,
                                        .event_bus = state->event_bus,
@@ -83,12 +90,8 @@ inline std::shared_ptr<events::StreamSession> create_stream_session(immer::box<s
 
                                        // Moonlight protocol extension to support IP-less connections
                                        .rtp_secret_payload = rtp_secret_payload,
-                                       .enet_secret_payload = enet_secret_payload,
-                                       .rtsp_fake_ip = fmt::format("{}.{}.{}.{}",
-                                                                   rtp_secret_payload[0],
-                                                                   rtp_secret_payload[1],
-                                                                   rtp_secret_payload[2],
-                                                                   rtp_secret_payload[3]),
+                                       .enet_secret_payload = uints(generator),
+                                       .rtsp_fake_ip = rtsp_fake_ip,
 
                                        // client info
                                        .session_id = state::get_client_id(current_client),

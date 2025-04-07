@@ -34,7 +34,7 @@ struct App {
 #define ML_FF_SESSION_ID_V1 0x02 // Client supports X-SS-Ping-Payload and X-SS-Connect-Data
 
 struct SS_PING {
-  std::array<uint8_t, 16> payload;
+  std::array<char, 16> payload;
   uint32_t sequenceNumber;
 };
 

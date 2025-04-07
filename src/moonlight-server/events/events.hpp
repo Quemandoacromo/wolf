@@ -114,7 +114,7 @@ struct VideoSession {
   ColorSpace color_space;
 
   std::string client_ip;
-  std::array<uint8_t, 16> rtp_secret_payload;
+  std::array<char, 16> rtp_secret_payload;
 };
 
 struct AudioSession {
@@ -130,7 +130,7 @@ struct AudioSession {
   std::uint16_t port;
   bool wait_for_ping = true;
   std::string client_ip;
-  std::array<uint8_t, 16> rtp_secret_payload;
+  std::array<char, 16> rtp_secret_payload;
 
   int packet_duration;
   wolf::core::audio::AudioMode audio_mode;
@@ -156,13 +156,13 @@ struct StopStreamEvent {
 struct RTPVideoPingEvent {
   std::string client_ip;
   unsigned short client_port;
-  std::optional<std::array<uint8_t, 16>> payload;
+  std::optional<std::array<char, 16>> payload;
 };
 
 struct RTPAudioPingEvent {
   std::string client_ip;
   unsigned short client_port;
-  std::optional<std::array<uint8_t, 16>> payload;
+  std::optional<std::array<char, 16>> payload;
 };
 
 struct StreamSession;
@@ -233,7 +233,7 @@ struct StreamSession {
   std::string aes_iv;
 
   // Moonlight protocol extension to support IP-less connections
-  std::array<uint8_t, 16> rtp_secret_payload;
+  std::array<char, 16> rtp_secret_payload;
   uint32_t enet_secret_payload;
   /**
    * A dirty hack in order to support RTSP without IP.
