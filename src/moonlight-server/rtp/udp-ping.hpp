@@ -48,6 +48,8 @@ private:
 
 void wait_for_ping(unsigned short port, const on_rtp_ping_fn &callback);
 
-void start_rtp_ping(unsigned short video_port, unsigned short audio_port, std::shared_ptr<wolf::core::events::EventBusType> event_bus);
+void start_rtp_ping(unsigned short video_port,
+                    unsigned short audio_port,
+                    std::shared_ptr<wolf::core::events::EventBusType> event_bus);
 
 } // namespace rtp
