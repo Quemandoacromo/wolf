@@ -22,7 +22,6 @@ void UDP_Server::run(std::chrono::milliseconds timeout) {
 }
 
 void UDP_Server::start_receive() {
-  remote_endpoint_ = udp::endpoint();
   socket_.async_receive_from(boost::asio::buffer(recv_buffer_),
                              remote_endpoint_,
                              0,
@@ -37,6 +36,8 @@ void UDP_Server::handle_receive(const boost::system::error_code &error, std::siz
     auto client_ip = remote_endpoint_.address().to_string();
     auto client_port = remote_endpoint_.port();
 
+    logs::log(logs::trace, "[RTP] Received ping from {}:{} ({} bytes)", client_ip, client_port, bytes_transferred);
+
     if (bytes_transferred == 4) {
       callback({.client_ip = client_ip, .client_port = client_port, .payload = {}});
     } else if (bytes_transferred >= sizeof(moonlight::SS_PING)) {
@@ -46,7 +47,7 @@ void UDP_Server::handle_receive(const boost::system::error_code &error, std::siz
     // Continue to receive more data
     start_receive();
   } else {
-    logs::log(logs::debug, "[RTP] Error receiving ping: {}", error.message());
+    logs::log(logs::warning, "[RTP] Error receiving ping: {}", error.message());
   }
 }
 
@@ -72,8 +73,8 @@ void start_rtp_ping(unsigned short video_port,
                     unsigned short audio_port,
                     std::shared_ptr<wolf::core::events::EventBusType> event_bus) {
   // Video RTP Ping
-  wait_for_ping(video_port, [event_bus](const RTPPingEvent &ping) {
-    logs::log(logs::trace, "[PING] video from {}:{}", ping.client_ip, ping.client_port);
+  wait_for_ping(video_port, [=](const RTPPingEvent &ping) {
+    logs::log(logs::trace, "[RTP] video {} from {}:{}", video_port, ping.client_ip, ping.client_port);
     auto ev = wolf::core::events::RTPVideoPingEvent{.client_ip = ping.client_ip,
                                                     .client_port = ping.client_port,
                                                     .payload = ping.payload};
@@ -81,8 +82,8 @@ void start_rtp_ping(unsigned short video_port,
   });
 
   // Audio RTP Ping
-  wait_for_ping(audio_port, [event_bus](const RTPPingEvent &ping) {
-    logs::log(logs::trace, "[PING] audio from {}:{}", ping.client_ip, ping.client_port);
+  wait_for_ping(audio_port, [=](const RTPPingEvent &ping) {
+    logs::log(logs::trace, "[RTP] audio {} from {}:{}", audio_port, ping.client_ip, ping.client_port);
     auto ev = wolf::core::events::RTPAudioPingEvent{.client_ip = ping.client_ip,
                                                     .client_port = ping.client_port,
                                                     .payload = ping.payload};

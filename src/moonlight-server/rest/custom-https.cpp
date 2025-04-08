@@ -17,7 +17,7 @@ Server<HTTPS>::Server(const std::string &certification_file, const std::string &
 
   this->on_error = [](std::shared_ptr<typename ServerBase<HTTPS>::Request> request, const error_code &ec) -> void {
     // TODO: why is stream truncated happening so frequently?
-    logs::log(ec.value() == 1 ? logs::trace : logs::warning,
+    logs::log(ec.value() == 1 || ec.value() == 167773206 ? logs::trace : logs::warning,
               "HTTPS error during request at {} error code: {} - {}",
               request->path,
               ec.value(),
