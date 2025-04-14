@@ -81,11 +81,8 @@ inline void init() {
   gst_init(nullptr, nullptr);
   logs::log(logs::info, "Gstreamer version: {}", get_gst_version());
 
-  GstPlugin *video_plugin = gst_plugin_load_by_name("rtpmoonlightpay_video");
-  gst_element_register(video_plugin, "rtpmoonlightpay_video", GST_RANK_PRIMARY, gst_TYPE_rtp_moonlight_pay_video);
-
-  GstPlugin *audio_plugin = gst_plugin_load_by_name("rtpmoonlightpay_audio");
-  gst_element_register(audio_plugin, "rtpmoonlightpay_audio", GST_RANK_PRIMARY, gst_TYPE_rtp_moonlight_pay_audio);
+  gst_element_register(nullptr, "rtpmoonlightpay_video", GST_RANK_PRIMARY, gst_TYPE_rtp_moonlight_pay_video);
+  gst_element_register(nullptr, "rtpmoonlightpay_audio", GST_RANK_PRIMARY, gst_TYPE_rtp_moonlight_pay_audio);
 
   moonlight::fec::init();
 }

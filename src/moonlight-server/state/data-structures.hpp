@@ -41,7 +41,7 @@ enum STANDARD_PORTS_MAPPING {
 inline int get_port(STANDARD_PORTS_MAPPING port) {
   switch (port) {
   case HTTPS_PORT:
-    return utils::get_env("WOLF_HTTP_PORT") ? std::stoi(utils::get_env("WOLF_HTTP_PORT")) : HTTPS_PORT;
+    return utils::get_env("WOLF_HTTPS_PORT") ? std::stoi(utils::get_env("WOLF_HTTPS_PORT")) : HTTPS_PORT;
   case HTTP_PORT:
     return utils::get_env("WOLF_HTTP_PORT") ? std::stoi(utils::get_env("WOLF_HTTP_PORT")) : HTTP_PORT;
   case CONTROL_PORT:
