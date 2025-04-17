@@ -527,8 +527,8 @@ TEST_CASE("Multiple users", "[HTTP]") {
   app_state.running_sessions->update([session1](auto &sessions) { return sessions.push_back(*session1); });
   auto session2 = endpoints::https::create_run_session(client1_headers, client1_ip, client1, app_state, app1);
 
-  REQUIRE(session2->video_stream_port == 48101);
-  REQUIRE(session2->audio_stream_port == 48201);
+  REQUIRE(session2->video_stream_port == 48100);
+  REQUIRE(session2->audio_stream_port == 48200);
 
   // Saving only the second session
   app_state.running_sessions->update(
@@ -546,6 +546,6 @@ TEST_CASE("Multiple users", "[HTTP]") {
   // We should now assign the 2nd port (even if we have 3 sessions) because of port clash
   auto session4 = endpoints::https::create_run_session(client1_headers, client1_ip, client1, app_state, app1);
 
-  REQUIRE(session4->video_stream_port == 48102);
-  REQUIRE(session4->audio_stream_port == 48202);
+  REQUIRE(session4->video_stream_port == 48100);
+  REQUIRE(session4->audio_stream_port == 48200);
 }
