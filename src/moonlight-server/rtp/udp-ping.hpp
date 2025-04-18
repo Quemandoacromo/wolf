@@ -27,7 +27,8 @@ using on_rtp_ping_fn = std::function<void(const RTPPingEvent &)>;
  */
 class UDP_Server : public boost::enable_shared_from_this<UDP_Server> {
 public:
-  UDP_Server(std::shared_ptr<udp::socket> socket, const on_rtp_ping_fn &callback) : socket_(std::move(socket)), callback(callback) {
+  UDP_Server(std::shared_ptr<udp::socket> socket, const on_rtp_ping_fn &callback)
+      : socket_(std::move(socket)), callback(callback) {
     start_receive();
   };
 
