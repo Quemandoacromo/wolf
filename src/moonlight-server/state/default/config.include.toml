@@ -203,7 +203,7 @@ default_source = 'interpipesrc listen-to={session_id}_video is-live=true stream-
 default_sink = """
 rtpmoonlightpay_video name=moonlight_pay \
 payload_size={payload_size} fec_percentage={fec_percentage} min_required_fec_packets={min_required_fec_packets} !
-appsink name=wolf_udp_sink\
+appsink sync=false name=wolf_udp_sink
 """
 
 ######################
@@ -416,6 +416,7 @@ audio-type=restricted-lowdelay max-payload-size=1400\
 default_sink = """
 rtpmoonlightpay_audio name=moonlight_pay packet_duration={packet_duration} encrypt={encrypt} \
 aes_key="{aes_key}" aes_iv="{aes_iv}" !
+queue !
 appsink name=wolf_udp_sink\
 """
 

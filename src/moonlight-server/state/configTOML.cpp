@@ -139,7 +139,7 @@ Config load_or_default(const std::string &source,
     default_gst_video_settings.default_sink = "rtpmoonlightpay_video name=moonlight_pay "
                                               "payload_size={payload_size} fec_percentage={fec_percentage} "
                                               "min_required_fec_packets={min_required_fec_packets} ! "
-                                              "appsink name=wolf_udp_sink";
+                                              "appsink sync=false name=wolf_udp_sink";
   }
 
   auto default_gst_audio_settings = cfg.gstreamer.audio;
@@ -153,7 +153,7 @@ Config load_or_default(const std::string &source,
     default_gst_audio_settings.default_sink =
         "rtpmoonlightpay_audio name=moonlight_pay packet_duration={packet_duration} encrypt={encrypt}"
         "aes_key=\"{aes_key}\" aes_iv=\"{aes_iv}\" ! "
-        "appsink name=wolf_udp_sink";
+        "appsink sync=false name=wolf_udp_sink";
   }
 
   auto default_gst_encoder_settings = default_gst_video_settings.defaults;
