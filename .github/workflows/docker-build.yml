@@ -96,7 +96,7 @@ jobs:
           context: docker/
           file: docker/gpu-drivers.Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/gpu-drivers:2023.11,gameonwhales/gpu-drivers:2023.11 # TODO: set build version as param
+          tags: ghcr.io/${{ github.repository_owner }}/gpu-drivers:2025.05,gameonwhales/gpu-drivers:2025.05 # TODO: set build version as param
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/gpu-drivers:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/gpu-drivers:buildcache,mode=max
@@ -110,7 +110,7 @@ jobs:
           push: true
           build-args: |
             GSTREAMER_VERSION=1.25.1
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/gpu-drivers:2023.11
+            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/gpu-drivers:2025.05
           tags: ghcr.io/${{ github.repository_owner }}/gstreamer:1.25.1,gameonwhales/gstreamer:1.25.1 # TODO: set gstreamer version as param
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/gstreamer:buildcache

@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/games-on-whales/gpu-drivers:2023.11
+ARG BASE_IMAGE=ghcr.io/games-on-whales/gpu-drivers:2025.05
 FROM $BASE_IMAGE AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 ENV BUILD_ARCHITECTURE=amd64
