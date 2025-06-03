@@ -144,7 +144,7 @@ TEST_CASE("uinput - touch screen", "[UINPUT]") {
   REQUIRE(session.touch_screen->has_value());
   std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
-  auto li = create_libinput_context(session.touch_screen->value().get_nodes());
+  auto li = create_libinput_context(std::get<TouchScreen>(session.touch_screen->value()).get_nodes());
   auto event = get_event(li);
   REQUIRE(event);
   REQUIRE(libinput_event_get_type(event.get()) == LIBINPUT_EVENT_DEVICE_ADDED);
