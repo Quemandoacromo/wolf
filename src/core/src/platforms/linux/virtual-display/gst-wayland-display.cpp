@@ -194,23 +194,30 @@ void WaylandKeyboard::release(unsigned int key_code) {
 }
 
 void WaylandTouchScreen::down(unsigned int touch_id, double x, double y) {
-  // TODO:
+  auto msg =
+      gst_structure_new("TouchDown", "x", G_TYPE_DOUBLE, x, "y", G_TYPE_DOUBLE, y, "id", G_TYPE_UINT, touch_id, NULL);
+  gstreamer::send_message(w_state->wayland_plugin.get(), msg);
 }
 
 void WaylandTouchScreen::up(unsigned int touch_id) {
-  // TODO:
+  auto msg = gst_structure_new("TouchUp", "id", G_TYPE_UINT, touch_id, NULL);
+  gstreamer::send_message(w_state->wayland_plugin.get(), msg);
 }
 
 void WaylandTouchScreen::motion(unsigned int touch_id, double x, double y) {
-  // TODO:
+  auto msg =
+      gst_structure_new("TouchMotion", "x", G_TYPE_DOUBLE, x, "y", G_TYPE_DOUBLE, y, "id", G_TYPE_UINT, touch_id, NULL);
+  gstreamer::send_message(w_state->wayland_plugin.get(), msg);
 }
 
 void WaylandTouchScreen::cancel() {
-  // TODO:
+  auto msg = gst_structure_new("TouchCancel", NULL);
+  gstreamer::send_message(w_state->wayland_plugin.get(), msg);
 }
 
 void WaylandTouchScreen::frame() {
-  // TODO:
+  auto msg = gst_structure_new("TouchFrame", NULL);
+  gstreamer::send_message(w_state->wayland_plugin.get(), msg);
 }
 
 } // namespace wolf::core::virtual_display

@@ -4,11 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV BUILD_ARCHITECTURE=amd64
 ENV DEB_BUILD_OPTIONS=noddebs
 
-ARG GSTREAMER_VERSION=1.25.1
+ARG GSTREAMER_VERSION=1.26.2
 ENV GSTREAMER_VERSION=$GSTREAMER_VERSION
-# Change this to 1.25.1 once released, this is to bring in nvav1enc
-ARG GSTREAMER_SHA_COMMIT=8f5caeb86d38aa66107ae83181b3eb1872be7875
-ENV GSTREAMER_SHA_COMMIT=$GSTREAMER_SHA_COMMIT
 
 ENV SOURCE_PATH=/sources/
 WORKDIR $SOURCE_PATH
@@ -49,7 +46,7 @@ RUN <<_GSTREAMER_INSTALL
     # Build gstreamer
     git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git $SOURCE_PATH/gstreamer
     cd ${SOURCE_PATH}/gstreamer
-    git checkout $GSTREAMER_SHA_COMMIT
+    git checkout $GSTREAMER_VERSION
     git submodule update --recursive --remote
     # see the list of possible options here: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/blob/main/meson_options.txt \
     meson setup \
