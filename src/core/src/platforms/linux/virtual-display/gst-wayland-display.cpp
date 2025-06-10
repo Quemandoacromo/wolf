@@ -26,12 +26,8 @@ std::string get_wayland_socket_name(WaylandState &w_state) {
 }
 
 bool add_input_device(WaylandState &w_state, const std::string &device_path) {
-  auto g_devices = g_array_new(FALSE, FALSE, sizeof(GValue));
-  auto g_device = g_strdup(device_path.c_str());
-  g_array_insert_val(g_devices, 0, g_device);
   gstreamer::send_message(w_state.wayland_plugin.get(),
-                          gst_structure_new("VirtualDevicesReady", "paths", G_TYPE_ARRAY, g_devices, NULL));
-  g_array_unref(g_devices);
+                          gst_structure_new("VirtualDevicesReady", "path", G_TYPE_STRING, device_path.c_str(), NULL));
   return true;
 }
 
@@ -211,12 +207,12 @@ void WaylandTouchScreen::motion(unsigned int touch_id, double x, double y) {
 }
 
 void WaylandTouchScreen::cancel() {
-  auto msg = gst_structure_new("TouchCancel", NULL);
+  auto msg = gst_structure_new("TouchCancel", "placeholder", G_TYPE_BOOLEAN, true, NULL);
   gstreamer::send_message(w_state->wayland_plugin.get(), msg);
 }
 
 void WaylandTouchScreen::frame() {
-  auto msg = gst_structure_new("TouchFrame", NULL);
+  auto msg = gst_structure_new("TouchFrame", "placeholder", G_TYPE_BOOLEAN, true, NULL);
   gstreamer::send_message(w_state->wayland_plugin.get(), msg);
 }
 
