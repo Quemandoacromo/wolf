@@ -275,7 +275,7 @@ video/x-h265, profile=main, stream-format=byte-stream\
 plugin_name = "vaapi"
 check_elements = ["vah265lpenc", "videoconvertscale"] # lp: (Low Power)
 encoder_pipeline = """
-vah265lpenc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} mbbrc=1 rate-control=cbr target-usage=6 !
+vah265lpenc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
 h265parse !
 video/x-h265, profile=main, stream-format=byte-stream\
 """
@@ -284,7 +284,7 @@ video/x-h265, profile=main, stream-format=byte-stream\
 plugin_name = "vaapi"
 check_elements = ["vah265enc", "videoconvertscale"]
 encoder_pipeline = """
-vah265enc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} mbbrc=1 rate-control=cbr target-usage=6 !
+vah265enc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
 h265parse !
 video/x-h265, profile=main, stream-format=byte-stream\
 """
@@ -331,7 +331,7 @@ video/x-h264, profile=main, stream-format=byte-stream\
 plugin_name = "vaapi"
 check_elements = ["vah264lpenc", "videoconvertscale"] # lp: (Low Power)
 encoder_pipeline = """
-vah264lpenc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} target-usage=6 !
+vah264lpenc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
 h264parse !
 video/x-h264, profile=main, stream-format=byte-stream\
 """
@@ -340,7 +340,7 @@ video/x-h264, profile=main, stream-format=byte-stream\
 plugin_name = "vaapi"
 check_elements = ["vah264enc", "videoconvertscale"]
 encoder_pipeline = """
-vah264enc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} target-usage=6 !
+vah264enc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
 h264parse !
 video/x-h264, profile=main, stream-format=byte-stream\
 """
@@ -386,7 +386,7 @@ video/x-av1, stream-format=obu-stream, alignment=frame, profile=main\
 plugin_name = "vaapi"
 check_elements = ["vaav1enc", "videoconvertscale"]
 encoder_pipeline = """
-vaav1enc ref-frames=1 bitrate={bitrate} rate-control=cbr target-usage=6 !
+vaav1enc ref-frames=1 bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
 av1parse !
 video/x-av1, stream-format=obu-stream, alignment=frame, profile=main\
 """
@@ -395,7 +395,7 @@ video/x-av1, stream-format=obu-stream, alignment=frame, profile=main\
 plugin_name = "vaapi"
 check_elements = ["vaav1lpenc", "videoconvertscale"] # LP = Low Power
 encoder_pipeline = """
-vaav1lpenc ref-frames=1 bitrate={bitrate} rate-control=cbr target-usage=6 !
+vaav1lpenc ref-frames=1 bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
 av1parse !
 video/x-av1, stream-format=obu-stream, alignment=frame, profile=main\
 """
