@@ -80,7 +80,6 @@ struct Profile {
   const std::string id;
   const std::string name;
   const std::string icon_png_path;
-
   /**
    * The pin that is required to access the profile
    * If this is not set, then the profile is open to everyone
@@ -100,7 +99,7 @@ struct Lobby {
   const std::string id;
   const std::string name;
   const std::string started_by_profile_id;
-
+  const bool multi_user;
   /**
    * The pin that is required to join and control the lobby
    * If this is not set, then the lobby is open to everyone
@@ -154,6 +153,7 @@ struct CreateLobbyEvent {
   std::string profile_id;
   const std::string name;
   std::optional<std::vector<short>> pin = std::nullopt;
+  const bool multi_user;
   const bool stop_when_everyone_leaves;
 
   const VideoSettings video_settings;

@@ -368,6 +368,7 @@ void UnixSocketServer::endpoint_LobbyCreate(const wolf::api::HTTPRequest &req, s
         .id = lobby_id,
         .profile_id = event.value().profile_id.get(),
         .name = event.value().name,
+        .multi_user = event.value().multi_user,
         .pin = event.value().pin.get(),
         .stop_when_everyone_leaves = event.value().stop_when_everyone_leaves,
         .video_settings = event.value().video_settings,
