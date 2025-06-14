@@ -13,7 +13,7 @@ RUN apt-get update -y && \
     pkg-config \
     ccache \
     git \
-    clang-16 \
+    clang \
     build-essential \
     libboost-thread-dev libboost-locale-dev libboost-filesystem-dev libboost-log-dev libboost-stacktrace-dev libboost-container-dev \
     libwayland-dev libwayland-server0 libinput-dev libxkbcommon-dev libgbm-dev \
@@ -42,7 +42,7 @@ RUN <<_GST_WAYLAND_DISPLAY
 
     git clone https://github.com/games-on-whales/gst-wayland-display
     cd gst-wayland-display
-    git checkout b3b34d8
+    git checkout 5e4f170
     cargo install cargo-c
     cargo cinstall -p gst-plugin-wayland-display --prefix=/usr/local/lib/x86_64-linux-gnu/ --libdir=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0
 _GST_WAYLAND_DISPLAY
@@ -78,6 +78,7 @@ RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl3 \
+    libicu76 \
     libevdev2 \
     libudev1 \
     libcurl4 \

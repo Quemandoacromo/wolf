@@ -17,7 +17,7 @@ Standards-Version: 3.9.2
 Package: gstreamer-wolf
 Version: $GSTREAMER_VERSION
 Depends: libc6, libcap2, libcap2-bin, libdw1, libglib2.0-0, libunwind8,
-          zlib1g, libdrm2, libva2, libmfx1, libpulse0, libxdamage1, libx265-209, libopus0,
+          zlib1g, libdrm2, libva2, libpulse0, libxdamage1, libx265-215, libopus0,
           libegl1, libgl1, libgles2, libudev1, libva-drm2, libva-wayland2, libva-x11-2, libva2,
           libwayland-client0, libx11-6, libx11-xcb1,  libxrandr2, libvpl2, libzxing3, libopenexr-3-1-30, librsvg2-2, libwebp7,
           libcairo2, libcairo-gobject2, libjpeg8, libopenjp2-7, liblcms2-2, libzbar0, libaom3, libsoup-2.4-1, libopengl0,
@@ -34,7 +34,7 @@ RUN <<_GSTREAMER_INSTALL
         build-essential ninja-build gcc meson cmake ccache bison equivs \
         ca-certificates git libllvm15 \
         flex libx265-dev libopus-dev nasm libzxing-dev libzbar-dev libdrm-dev libva-dev \
-        libmfx-dev libvpl-dev libmfx-tools libunwind8 libcap2-bin \
+        libvpl-dev libunwind8 libcap2-bin \
         libx11-dev libx11-xcb-dev libxfixes-dev libxdamage-dev libwayland-dev wayland-protocols libpulse-dev libglib2.0-dev \
         libopenjp2-7-dev liblcms2-dev libcairo2-dev libcairo-gobject2 libwebp7 librsvg2-dev libaom-dev \
         libharfbuzz-dev libpango1.0-dev libsoup-2.4-1 libopengl-dev libgbm-dev libegl-dev \

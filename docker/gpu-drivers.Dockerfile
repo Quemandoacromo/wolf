@@ -5,10 +5,11 @@ ENV BUILD_ARCHITECTURE=amd64
 ENV DEB_BUILD_OPTIONS=noddebs
 
 # Intel (Quick Synk) specific:
+# TODO: missing libmfx in Ubuntu 25.05
 # - libmfx Provides MSDK runtime (libmfxhw64.so.1) for 11th Gen Rocket Lake and older
 # - libmfx-gen1.2 Provides VPL runtime (libmfx-gen.so.1.2) for 11th Gen Tiger Lake and newer
 ARG REQUIRED_PACKAGES="va-driver-all intel-media-va-driver-non-free \
-                       libmfx1 libmfx-gen1.2 libigfxcmrt7 \
+                       libmfx-gen1.2 libigfxcmrt7 \
                        libva-drm2 libva-x11-2 libvpl2"
 
 RUN apt-get update -y && \
