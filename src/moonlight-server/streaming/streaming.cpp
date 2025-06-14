@@ -218,12 +218,7 @@ void start_streaming_video(immer::box<events::VideoSession> video_session,
                            std::shared_ptr<udp::socket> video_socket) {
   auto [color_range, color_space] = get_color_params(video_session);
 
-  auto default_app_render_node = utils::get_env("WOLF_RENDER_NODE", "/dev/dri/renderD128");
-  auto encoder_node = utils::get_env("WOLF_ENCODER_NODE", default_app_render_node);
-  // TODO: turn encoder_node into the required cuda-device-id for Nvidia encoders
-
   auto pipeline = fmt::format(fmt::runtime(video_session->gst_pipeline),
-                              fmt::arg("encoder_node", encoder_node),
                               fmt::arg("session_id", video_session->session_id),
                               fmt::arg("width", video_session->display_mode.width),
                               fmt::arg("height", video_session->display_mode.height),

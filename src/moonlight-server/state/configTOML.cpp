@@ -239,8 +239,8 @@ Config load_or_default(const std::string &source,
       logs::log(logs::debug, "Required DMA formats for vapostproc: {}", required_caps);
       auto gst_caps = required_caps | //
                       ranges::views::remove_if([](const std::string &cap) {
-                        // TODO: HDR isn't supported by Wolf yet (so we remove P010 and AR30 format)
-                        return cap.find("P010") != std::string::npos || cap.find("AR30") != std::string::npos ||
+                        // TODO: HDR isn't supported by Wolf yet (so we remove P010)
+                        return cap.find("P010") != std::string::npos ||
                                // We also remove formats that are padded with spaces since they need escaping
                                cap.find(" ") != std::string::npos;
                       }) | //
