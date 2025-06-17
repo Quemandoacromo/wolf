@@ -179,6 +179,19 @@ GPU_VENDOR get_vendor(std::string_view gpu) {
   return UNKNOWN;
 }
 
+std::string get_vendor_name(GPU_VENDOR vendor) {
+  switch (vendor) {
+  case NVIDIA:
+    return "Nvidia";
+  case AMD:
+    return "AMD";
+  case INTEL:
+    return "Intel";
+  default:
+    return "Unknown";
+  }
+}
+
 std::string get_ip_address(ifaddrs *ifa) {
   if (ifa->ifa_addr->sa_family == AF_INET) { // IP4
     auto tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;

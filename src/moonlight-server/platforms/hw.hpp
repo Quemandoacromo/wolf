@@ -22,4 +22,6 @@ enum GPU_VENDOR {
 
 GPU_VENDOR get_vendor(std::string_view gpu);
 
+std::string get_vendor_name(GPU_VENDOR vendor);
+
 std::string get_mac_address(std::string_view local_ip);

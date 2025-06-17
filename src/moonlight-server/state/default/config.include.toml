@@ -2,7 +2,7 @@ R"for_c++_include(
 # The name that will be displayed in Moonlight
 hostname = "Wolf"
 # The version of this config file
-config_version = 4
+config_version = 5
 # A list of paired clients that will be allowed to stream
 paired_clients = []
 
@@ -237,7 +237,7 @@ video/x-raw(memory:VAMemory),format=NV12, chroma-site={color_range},
 colorimetry={color_space} pixel-aspect-ratio=1/1\
 """
 
-[gstreamer.video.defaults.vaapi]
+[gstreamer.video.defaults.va]
 video_params = """
 vapostproc !
 video/x-raw, chroma-site={color_range}, width={width}, height={height}, format=NV12,
@@ -273,7 +273,7 @@ video/x-h265, profile=main, stream-format=byte-stream\
 """
 
 [[gstreamer.video.hevc_encoders]]
-plugin_name = "vaapi"
+plugin_name = "va"
 check_elements = ["vah265lpenc", "vapostproc"] # lp: (Low Power)
 encoder_pipeline = """
 vah265lpenc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
@@ -282,7 +282,7 @@ video/x-h265, profile=main, stream-format=byte-stream\
 """
 
 [[gstreamer.video.hevc_encoders]]
-plugin_name = "vaapi"
+plugin_name = "va"
 check_elements = ["vah265enc", "vapostproc"]
 encoder_pipeline = """
 vah265enc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
@@ -294,6 +294,12 @@ video/x-h265, profile=main, stream-format=byte-stream\
 plugin_name = "x265" # SW Encoding
 check_elements = ["x265enc"]
 video_params = """
+videoconvertscale !
+videorate !
+video/x-raw, width={width}, height={height}, framerate={fps}/1, format=I420,
+chroma-site={color_range}, colorimetry={color_space}\
+"""
+video_params_zero_copy = """
 videoconvertscale !
 videorate !
 video/x-raw, width={width}, height={height}, framerate={fps}/1, format=I420,
@@ -329,7 +335,7 @@ video/x-h264, profile=main, stream-format=byte-stream\
 """
 
 [[gstreamer.video.h264_encoders]]
-plugin_name = "vaapi"
+plugin_name = "va"
 check_elements = ["vah264lpenc", "vapostproc"] # lp: (Low Power)
 encoder_pipeline = """
 vah264lpenc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
@@ -338,7 +344,7 @@ video/x-h264, profile=main, stream-format=byte-stream\
 """
 
 [[gstreamer.video.h264_encoders]]
-plugin_name = "vaapi"
+plugin_name = "va"
 check_elements = ["vah264enc", "vapostproc"]
 encoder_pipeline = """
 vah264enc aud=false b-frames=0 ref-frames=1 num-slices={slices_per_frame} bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
@@ -349,12 +355,6 @@ video/x-h264, profile=main, stream-format=byte-stream\
 [[gstreamer.video.h264_encoders]]
 plugin_name = "x264" # SW Encoding
 check_elements = ["x264enc"]
-video_params = """
-videoconvertscale !
-videorate !
-video/x-raw, width={width}, height={height}, framerate={fps}/1, format=I420,
-chroma-site={color_range}, colorimetry={color_space}\
-"""
 encoder_pipeline = """
 x264enc pass=qual tune=zerolatency speed-preset=superfast b-adapt=false bframes=0 ref=1
 sliced-threads=true threads={slices_per_frame} option-string="slices={slices_per_frame}:keyint=infinite:open-gop=0"
@@ -384,7 +384,7 @@ video/x-av1, stream-format=obu-stream, alignment=frame, profile=main\
 """
 
 [[gstreamer.video.av1_encoders]]
-plugin_name = "vaapi"
+plugin_name = "va"
 check_elements = ["vaav1enc", "vapostproc"]
 encoder_pipeline = """
 vaav1enc ref-frames=1 bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
@@ -393,7 +393,7 @@ video/x-av1, stream-format=obu-stream, alignment=frame, profile=main\
 """
 
 [[gstreamer.video.av1_encoders]]
-plugin_name = "vaapi"
+plugin_name = "va"
 check_elements = ["vaav1lpenc", "vapostproc"] # LP = Low Power
 encoder_pipeline = """
 vaav1lpenc ref-frames=1 bitrate={bitrate} cpb-size={bitrate} key-int-max=1024 rate-control=cqp target-usage=6 !
@@ -405,6 +405,12 @@ video/x-av1, stream-format=obu-stream, alignment=frame, profile=main\
 plugin_name = "aom"
 check_elements = ["av1enc"]
 video_params = """
+videoconvertscale !
+videorate !
+video/x-raw, width={width}, height={height}, framerate={fps}/1, format=I420,
+chroma-site={color_range}, colorimetry={color_space}\
+"""
+video_params_zero_copy = """
 videoconvertscale !
 videorate !
 video/x-raw, width={width}, height={height}, framerate={fps}/1, format=I420,

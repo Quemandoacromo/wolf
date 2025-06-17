@@ -6,7 +6,7 @@ uuid = "0000-1111-2222-3333"
 support_hevc = true
 support_av1 = false
 # The version of this config file
-config_version = 4
+config_version = 5
 
 
 # A list of paired clients that will be allowed to stream
@@ -31,15 +31,15 @@ type = "docker"
 name = "WolfRetroarch"
 image = "ghcr.io/games-on-whales/firefox:master"
 mounts = [
-  "/tmp/sockets:/tmp/.X11-unix/:ro",
-  "/tmp/sockets:/run/user/1000/pulse/:ro",
-  "/run/udev:/run/udev:ro",
-  "/var/local/retro:/home/retro:rw",
+    "/tmp/sockets:/tmp/.X11-unix/:ro",
+    "/tmp/sockets:/run/user/1000/pulse/:ro",
+    "/run/udev:/run/udev:ro",
+    "/var/local/retro:/home/retro:rw",
 ]
 devices = []
 ports = []
 env = [
-  "LOG_LEVEL=info"
+    "LOG_LEVEL=info"
 ]
 base_create_json = """
 {
@@ -73,7 +73,7 @@ source = "override DEFAULT SOURCE"
 default_source = "video_source"
 default_sink = "video_sink"
 
-defaults = { "coreelements" = { "video_params" = "default" } }
+defaults = { "coreelements" = { "video_params" = "default", "video_params_zero_copy" = "default" } }
 
 ######################
 # AV1 encoders
@@ -89,6 +89,7 @@ encoder_pipeline = ""
 plugin_name = "coreelements"
 check_elements = ["identity"]
 video_params = "params"
+video_params_zero_copy = "params_zero"
 encoder_pipeline = "av1_pipeline"
 
 ######################
