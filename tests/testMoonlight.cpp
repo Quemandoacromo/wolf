@@ -38,7 +38,7 @@ TEST_CASE("LocalState load TOML", "[LocalState]") {
     REQUIRE_THAT(first_app->base.icon_png_path.value(), Equals("firefox.png"));
     REQUIRE_THAT(first_app->h264_gst_pipeline, Equals("video_source !\ndefault !\nh264_pipeline !\nvideo_sink"));
     REQUIRE_THAT(first_app->hevc_gst_pipeline, Equals("video_source !\ndefault !\nhevc_pipeline !\nvideo_sink"));
-    REQUIRE_THAT(first_app->av1_gst_pipeline, Equals("video_source !\nparams_zero !\nav1_pipeline !\nvideo_sink"));
+    REQUIRE_THAT(first_app->av1_gst_pipeline, Equals("video_source !\nparams !\nav1_pipeline !\nvideo_sink"));
     REQUIRE(first_app->start_virtual_compositor);
     REQUIRE(first_app->render_node == "/dev/dri/renderD128");
     auto first_app_runner = rfl::get<AppDocker>(first_app->runner->serialize().variant());
@@ -53,7 +53,7 @@ TEST_CASE("LocalState load TOML", "[LocalState]") {
     REQUIRE_THAT(second_app->hevc_gst_pipeline,
                  Equals("override DEFAULT SOURCE !\ndefault !\nhevc_pipeline !\nvideo_sink"));
     REQUIRE_THAT(second_app->av1_gst_pipeline,
-                 Equals("override DEFAULT SOURCE !\nparams_zero !\nav1_pipeline !\nvideo_sink"));
+                 Equals("override DEFAULT SOURCE !\nparams !\nav1_pipeline !\nvideo_sink"));
     REQUIRE(!second_app->start_virtual_compositor);
     REQUIRE(second_app->render_node == "/tmp/dead_beef");
     auto second_app_runner = rfl::get<AppCMD>(second_app->runner->serialize().variant());
