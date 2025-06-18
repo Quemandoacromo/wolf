@@ -107,82 +107,98 @@ TEST_CASE("Docker TOML", "[DOCKER]") {
 }
 
 TEST_CASE("Parse nulls in json reply", "[DOCKER]") {
+  // This is a reply that has been reported in the wild when using Podman
+  // Notice the `null` like in the port definition ({"4713/tcp": null})
   auto reply = R""""(
 {
-  "Id": "f2eb121b3cf4dfa4e96502675c41b26d660934f324c5c57af9d9baa6730c81cc",
-  "Created": "2024-10-23T03:15:27.327380595Z",
-  "Path": "tailscaled",
-  "Args": [],
+  "Id": "774d0082288351f545401417afb5098959c6202e506b3ea3744c75c68bc9f357",
+  "Created": "2025-06-18T07:39:53.67642857Z",
+  "Path": "/entrypoint.sh",
+  "Args": [
+    "/entrypoint.sh"
+  ],
   "State": {
-    "Status": "running",
-    "Running": true,
+    "Status": "created",
+    "Running": false,
     "Paused": false,
     "Restarting": false,
     "OOMKilled": false,
     "Dead": false,
-    "Pid": 2656,
+    "Pid": 0,
     "ExitCode": 0,
     "Error": "",
-    "StartedAt": "2024-10-23T12:20:44.086062876Z",
-    "FinishedAt": "2024-10-23T12:20:07.067144588Z"
+    "StartedAt": "0001-01-01T00:00:00Z",
+    "FinishedAt": "0001-01-01T00:00:00Z",
+    "Health": {
+      "Status": "",
+      "FailingStreak": 0,
+      "Log": null
+    }
   },
-  "Image": "sha256:8841c6e652e3b9d1bc299b80d6cfce8dfc0f183305fa88605557812fcf0e1b4d",
-  "ResolvConfPath": "/var/lib/docker/containers/f2eb121b3cf4dfa4e96502675c41b26d660934f324c5c57af9d9baa6730c81cc/resolv.conf",
-  "HostnamePath": "/var/lib/docker/containers/f2eb121b3cf4dfa4e96502675c41b26d660934f324c5c57af9d9baa6730c81cc/hostname",
-  "HostsPath": "/var/lib/docker/containers/f2eb121b3cf4dfa4e96502675c41b26d660934f324c5c57af9d9baa6730c81cc/hosts",
-  "LogPath": "/var/lib/docker/containers/f2eb121b3cf4dfa4e96502675c41b26d660934f324c5c57af9d9baa6730c81cc/f2eb121b3cf4dfa4e96502675c41b26d660934f324c5c57af9d9baa6730c81cc-json.log",
-  "Name": "/tailscale-docker",
+  "Image": "sha256:16867cd26141b14e889ffefa75d9aedfb535718a1e03f9765f1f612c60bda944",
+  "ResolvConfPath": "",
+  "HostnamePath": "",
+  "HostsPath": "",
+  "LogPath": "",
+  "Name": "/WolfPulseAudio",
   "RestartCount": 0,
-  "Driver": "overlay2",
+  "Driver": "overlay",
   "Platform": "linux",
   "MountLabel": "",
   "ProcessLabel": "",
-  "AppArmorProfile": "docker-default",
-  "ExecIDs": null,
+  "AppArmorProfile": "containers-default-0.50.1",
+  "ExecIDs": [],
   "HostConfig": {
-    "Binds": null,
+    "Binds": [
+      "/tmp/sockets:/tmp/pulse/:rw,rprivate,rbind"
+    ],
     "ContainerIDFile": "",
     "LogConfig": {
-      "Type": "json-file",
-      "Config": {}
+      "Type": "journald",
+      "Config": null
     },
-    "NetworkMode": "vpn-server_networks",
-    "PortBindings": {},
+    "NetworkMode": "bridge",
+    "PortBindings": {
+      "4713/tcp": null
+    },
     "RestartPolicy": {
-      "Name": "unless-stopped",
+      "Name": "",
       "MaximumRetryCount": 0
     },
     "AutoRemove": false,
     "VolumeDriver": "",
     "VolumesFrom": null,
-    "ConsoleSize": [
-      0,
-      0
+    "CapAdd": [],
+    "CapDrop": [
+      "AUDIT_WRITE",
+      "MKNOD",
+      "NET_RAW"
     ],
-    "CapAdd": [
-      "net_admin",
-      "sys_module"
-    ],
-    "CapDrop": null,
-    "CgroupnsMode": "private",
+    "CgroupnsMode": "",
     "Dns": [],
     "DnsOptions": [],
     "DnsSearch": [],
     "ExtraHosts": [],
-    "GroupAdd": null,
-    "IpcMode": "private",
+    "GroupAdd": [],
+    "IpcMode": "shareable",
     "Cgroup": "",
     "Links": null,
     "OomScoreAdj": 0,
-    "PidMode": "",
+    "PidMode": "private",
     "Privileged": false,
     "PublishAllPorts": false,
     "ReadonlyRootfs": false,
-    "SecurityOpt": null,
-    "UTSMode": "",
+    "SecurityOpt": [
+      "label=disable"
+    ],
+    "UTSMode": "private",
     "UsernsMode": "",
-    "ShmSize": 67108864,
-    "Runtime": "runc",
+    "ShmSize": 65536000,
+    "Runtime": "oci",
+    "ConsoleSize": [
+      0,
+      0
+    ],
     "Isolation": "",
     "CpuShares": 0,
     "Memory": 0,
@@ -205,62 +221,153 @@ TEST_CASE("Parse nulls in json reply", "[DOCKER]") {
     "DeviceRequests": null,
     "MemoryReservation": 0,
     "MemorySwap": 0,
-    "MemorySwappiness": null,
-    "OomKillDisable": null,
-    "PidsLimit": null,
-    "Ulimits": null,
+    "MemorySwappiness": 0,
+    "OomKillDisable": false,
+    "PidsLimit": 2048,
+    "Ulimits": [
+      {
+        "Name": "RLIMIT_NOFILE",
+        "Hard": 1280,
+        "Soft": 2560
+      },
+      {
+        "Name": "RLIMIT_NPROC",
+        "Hard": 1048576,
+        "Soft": 1048576
+      }
+    ],
     "CpuCount": 0,
     "CpuPercent": 0,
     "IOMaximumIOps": 0,
-    "IOMaximumBandwidth": 0
+    "IOMaximumBandwidth": 0,
+    "MaskedPaths": null,
+    "ReadonlyPaths": null
   },
+  "GraphDriver": {
+    "Data": {
+      "LowerDir": "/data/graphroot/overlay/79b8ed02363b6cd7786573b5743e4dcc0e2495a6db592d283e2112df99d729a7/diff:/data/graphroot/overlay/83883137fe301463563d25c8b493dc4fdaf8ca4e36044299b7ceb1f27c6320fc/diff:/data/graphroot/overlay/1b02221f2209e21c01edd4d73a675514bad307bc8cec0895fc76d2a97687cde9/diff:/data/graphroot/overlay/07a190aac66b86488b03a291a3db257521d5b00c6e8a6a5a5871448e168679a3/diff:/data/graphroot/overlay/e5edd50272bfe60cf41e13d7032b5fd9f8acbdfba24aa0065ee5d40d99e2a773/diff:/data/graphroot/overlay/3c8dc8cff202c4eca4fca7e1bdb203d647119851e50f75b7db9b823a4c1bb6a0/diff:/data/graphroot/overlay/975bb9523045cd9eb661105979a522eab73a0b289c7e68b83bdd7c0a5bbdaeda/diff:/data/graphroot/overlay/816f1a64d8b476d8c76957cb5749d7a1f5d02a2f8d444b901666419f5fc9e1df/diff",
+      "UpperDir": "/data/graphroot/overlay/b025276fb1a5c78e3f5f545b3554b3617e718d4b6358a9df0534a41d918d9c19/diff",
+      "WorkDir": "/data/graphroot/overlay/b025276fb1a5c78e3f5f545b3554b3617e718d4b6358a9df0534a41d918d9c19/work"
+    },
+    "Name": "overlay"
+  },
+  "SizeRootFs": 0,
   "Mounts": [
     {
       "Type": "bind",
-      "Source": "/dev/net/tun",
-      "Destination": "/dev/net/tun",
-      "Mode": "rw",
-      "RW": true,
-      "Propagation": "rprivate"
-    },
-    {
-      "Type": "bind",
-      "Source": "/srv/mergerfs/mergerfs_data/user-data/docker-appdata/tailscale/tailscale_var_lib",
-      "Destination": "/var/lib",
-      "Mode": "rw",
+      "Source": "/tmp/sockets",
+      "Destination": "/tmp/pulse/",
+      "Mode": "",
       "RW": true,
       "Propagation": "rprivate"
     }
   ],
   "Config": {
-    "Hostname": "OMV-tailscaleVPN",
+    "Hostname": "774d00822883",
     "Domainname": "",
     "User": "",
     "AttachStdin": false,
-    "AttachStdout": true,
-    "AttachStderr": true,
+    "AttachStdout": false,
+    "AttachStderr": false,
+    "ExposedPorts": {
+      "4713/tcp": {}
+    },
     "Tty": false,
     "OpenStdin": false,
     "StdinOnce": false,
-    "Env": null,
-    "Cmd": [
-      "tailscaled"
+    "Env": [
+      "TERM=xterm",
+      "UMASK=000",
+      "HOME=/root",
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "PGID=1000",
+      "XDG_RUNTIME_DIR=/tmp/pulse/",
+      "container=podman",
+      "TZ=Europe/London",
+      "NEEDRESTART_SUSPEND=1",
+      "GID=1000",
+      "DEBIAN_FRONTEND=noninteractive",
+      "PUID=1000",
+      "UNAME=retro",
+      "UID=1000"
     ],
-    "Image": "tailscale/tailscale:stable",
+    "Cmd": [],
+    "Image": "ghcr.io/games-on-whales/pulseaudio:master",
     "Volumes": null,
-    "WorkingDir": "",
-    "Entrypoint": null,
-    "OnBuild": null
+    "WorkingDir": "/",
+    "Entrypoint": [
+      "/entrypoint.sh"
+    ],
+    "OnBuild": null,
+    "Labels": {
+      "org.opencontainers.image.ref.name": "ubuntu",
+      "org.opencontainers.image.source": "https://github.com/games-on-whales/gow",
+      "org.opencontainers.image.version": "25.04"
+    },
+    "StopSignal": "15",
+    "StopTimeout": 0
+  },
+  "NetworkSettings": {
+    "Bridge": "",
+    "SandboxID": "",
+    "HairpinMode": false,
+    "LinkLocalIPv6Address": "",
+    "LinkLocalIPv6PrefixLen": 0,
+    "Ports": {
+      "4713/tcp": null
+    },
+    "SandboxKey": "",
+    "SecondaryIPAddresses": null,
+    "SecondaryIPv6Addresses": null,
+    "EndpointID": "",
+    "Gateway": "",
+    "GlobalIPv6Address": "",
+    "GlobalIPv6PrefixLen": 0,
+    "IPAddress": "",
+    "IPPrefixLen": 0,
+    "IPv6Gateway": "",
+    "MacAddress": "",
+    "Networks": {
+      "podman": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": [
+          "774d00822883"
+        ],
+        "NetworkID": "podman",
+        "EndpointID": "",
+        "Gateway": "",
+        "IPAddress": "",
+        "IPPrefixLen": 0,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "MacAddress": "",
+        "DriverOpts": null
+      }
+    }
   }
 }
 )"""";
 
   auto json = utils::parse_json(reply);
-  auto parsed_container = boost::json::value_to<wolf::core::docker::Container>(json);
+  auto parsed_container = boost::json::value_to<docker::Container>(json);
 
-  REQUIRE_THAT(parsed_container.id, Equals("f2eb121b3cf4dfa4e96502675c41b26d660934f324c5c57af9d9baa6730c81cc"));
-  REQUIRE(parsed_container.mounts.empty());
-  REQUIRE(parsed_container.devices.empty());
-  REQUIRE(parsed_container.env.empty());
-  REQUIRE(parsed_container.ports.empty());
+  REQUIRE_THAT(parsed_container.id, Equals("774d0082288351f545401417afb5098959c6202e506b3ea3744c75c68bc9f357"));
+  REQUIRE(parsed_container.status == docker::CREATED);
+
+  REQUIRE(parsed_container.mounts.size() == 1);
+  REQUIRE_THAT(parsed_container.mounts[0].source, Equals("/tmp/sockets"));
+  REQUIRE_THAT(parsed_container.mounts[0].destination, Equals("/tmp/pulse/"));
+  REQUIRE_THAT(parsed_container.mounts[0].mode, Equals("rw,rprivate,rbind"));
+
+  REQUIRE(parsed_container.devices.size() == 0);
+
+  REQUIRE(parsed_container.ports.size() == 1);
+  REQUIRE(parsed_container.ports[0].private_port == 4713);
+  REQUIRE(parsed_container.ports[0].public_port == 4713);
+  REQUIRE(parsed_container.ports[0].type == docker::TCP);
+
+  REQUIRE(parsed_container.env.size() == 14);
+  REQUIRE_THAT(parsed_container.env, Contains("XDG_RUNTIME_DIR=/tmp/pulse/"));
 }

@@ -100,10 +100,16 @@ docker::Container tag_invoke(value_to_tag<docker::Container>, value const &jv) {
   if (!host_config.at("PortBindings").is_null()) { // This can be `null` in the APIs for some reason
     for (auto const &port : host_config.at("PortBindings").as_object()) {
       auto settings = utils::split(std::string_view(port.key().data(), port.key().size()), '/');
-      ports.push_back(
-          docker::Port{.private_port = std::stoi(port.value().as_array()[0].at("HostPort").as_string().data()),
-                       .public_port = std::stoi(settings[0].data()),
-                       .type = settings[1] == "tcp" ? docker::TCP : docker::UDP});
+      if (settings.size() != 2) {
+        logs::log(logs::warning, "[DOCKER] Invalid port binding {} skipping..", port.key());
+        continue;
+      }
+      auto private_port = port.value().is_null() // Can be null in Podman
+                              ? std::stoi(settings[0].data())
+                              : std::stoi(port.value().as_array()[0].at("HostPort").as_string().data());
+      ports.push_back(docker::Port{.private_port = private_port,
+                                   .public_port = std::stoi(settings[0].data()),
+                                   .type = settings[1] == "tcp" ? docker::TCP : docker::UDP});
     }
   }
 
