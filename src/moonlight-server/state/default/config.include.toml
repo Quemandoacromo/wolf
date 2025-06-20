@@ -10,6 +10,7 @@ paired_clients = []
 # Apps, the list of apps that will be shown in Moonlight
 [[apps]]
 title = "Firefox"
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/firefox/assets/icon.png"
 start_virtual_compositor = true
 
 [apps.runner]
@@ -38,6 +39,7 @@ base_create_json = """
 
 [[apps]]
 title = "RetroArch"
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/retroarch/assets/icon.png"
 start_virtual_compositor = true
 
 [apps.runner]
@@ -65,6 +67,7 @@ base_create_json = """
 
 [[apps]]
 title = "Steam"
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/steam/assets/icon.png"
 start_virtual_compositor = true
 
 [apps.runner]
@@ -95,6 +98,7 @@ base_create_json = """
 
 [[apps]]
 title = "Pegasus"
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/pegasus/assets/icon.png"
 start_virtual_compositor = true
 
 [apps.runner]
@@ -122,6 +126,7 @@ base_create_json = """
 
 [[apps]]
 title = "Lutris"
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/lutris/assets/icon.png"
 start_virtual_compositor = true
 
 [apps.runner]
@@ -149,6 +154,7 @@ base_create_json = """
 
 [[apps]]
 title = "Prismlauncher"
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/prismlauncher/assets/icon.png"
 start_virtual_compositor = true
 
 [apps.runner]
@@ -168,6 +174,79 @@ base_create_json = """
     "IpcMode": "host",
     "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
     "Privileged": false,
+    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+  }
+}
+\
+"""
+
+[[apps]]
+title = 'Desktop (xfce)'
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/xfce/assets/icon.png"
+
+[apps.runner]
+type = 'docker'
+name = 'WolfXFCE'
+image = 'ghcr.io/games-on-whales/xfce:edge'
+env = ['GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*']
+devices = []
+mounts = []
+ports = []
+base_create_json = """
+{
+  "HostConfig": {
+    "IpcMode": "host",
+    "Privileged": false,
+    "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
+    "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
+    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+  }
+}
+\
+"""
+
+[[apps]]
+title = "EmulationStation"
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/es-de/assets/icon.png"
+
+[apps.runner]
+type = "docker"
+name = "WolfES-DE"
+image = "ghcr.io/games-on-whales/es-de:edge"
+mounts = []
+env = ["RUN_SWAY=1", "MOZ_ENABLE_WAYLAND=1", "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*", ]
+devices = []
+ports = []
+base_create_json = """
+{
+  "HostConfig": {
+    "IpcMode": "host",
+    "Privileged": false,
+    "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
+    "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+  }
+}
+\
+"""
+
+[[apps]]
+title = 'Kodi'
+icon_png_path = "https://games-on-whales.github.io/wildlife/apps/kodi/assets/icon.png"
+
+[apps.runner]
+type = 'docker'
+name = 'WolfKodi'
+image = 'ghcr.io/games-on-whales/kodi:edge'
+env = ['RUN_SWAY=true', 'GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/nvidia*']
+devices = []
+mounts = []
+ports = []
+base_create_json = """
+{
+  "HostConfig": {
+    "IpcMode": "host",
+    "Privileged": false,
+    "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN"],
     "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
   }
 }
@@ -228,26 +307,26 @@ colorimetry={color_space}, pixel-aspect-ratio=1/1\
 video_params = """
 videoconvertscale !
 video/x-raw, chroma-site={color_range}, width={width}, height={height}, format=NV12,
-colorimetry={color_space} pixel-aspect-ratio=1/1\
+colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
 
 video_params_zero_copy = """
 vapostproc !
 video/x-raw(memory:VAMemory),format=NV12, chroma-site={color_range},
-colorimetry={color_space} pixel-aspect-ratio=1/1\
+colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
 
 [gstreamer.video.defaults.va]
 video_params = """
 vapostproc !
 video/x-raw, chroma-site={color_range}, width={width}, height={height}, format=NV12,
-colorimetry={color_space} pixel-aspect-ratio=1/1\
+colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
 
 video_params_zero_copy = """
 vapostproc !
 video/x-raw(memory:VAMemory), format=NV12, chroma-site={color_range}, width={width}, height={height},
-colorimetry={color_space} pixel-aspect-ratio=1/1\
+colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
 
 ######################

@@ -95,6 +95,16 @@ get_encoder(std::string_view tech, const std::vector<GstEncoder> &encoders, cons
   return std::nullopt;
 }
 
+/**
+ * ID is used by Moonlight to uniquely identify the app.
+ * We have to change it if we change something that will be displayed
+ */
+std::string generate_app_id(const BaseApp &app) {
+  auto hash = utils::hash(app.icon_png_path.value_or("") + app.title);
+  // Value must be truncated to signed 32-bit range due to client limitations
+  return std::to_string(abs((int32_t)hash));
+}
+
 Config load_or_default(const std::string &source,
                        const std::shared_ptr<events::EventBusType> &ev_bus,
                        state::SessionsAtoms running_sessions) {
@@ -247,10 +257,8 @@ Config load_or_default(const std::string &source,
                               : av1_encoder->video_params.value_or(default_av1.video_params);
   /* Get apps, here we'll merge the default gstreamer settings with the app specific overrides */
   auto apps =
-      cfg.apps |                                                     //
-      ranges::views::enumerate |                                     //
-      ranges::views::transform([&](std::pair<int, BaseApp &> pair) { //
-        auto [idx, app] = pair;
+      cfg.apps |                                         //
+      ranges::views::transform([&](const BaseApp &app) { //
         auto app_render_node = app.render_node.value_or(default_app_render_node);
         if (app_render_node != default_gst_render_node) {
           logs::log(logs::warning,
@@ -299,7 +307,7 @@ Config load_or_default(const std::string &source,
 
         return immer::box<events::App>{
             events::App{.base = {.title = app.title,
-                                 .id = std::to_string(idx + 1),
+                                 .id = generate_app_id(app),
                                  .support_hdr = false,
                                  .icon_png_path = app.icon_png_path},
                         .video_producer_buffer_caps =

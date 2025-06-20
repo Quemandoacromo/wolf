@@ -124,7 +124,8 @@ For example, if you want to change the `HOST_APPS_STATE_FOLDER` to `/mnt/drive/w
 * `-e HOST_APPS_STATE_FOLDER=/mnt/drive/wolf`
 * `-v /mnt/drive/wolf:/mnt/drive/wolf:rw`
 
-Keeping `HOST_APPS_STATE_FOLDER` unchanged and only modifying `-v /mnt/drive/wolf:/etc/wolf:rw` is not sufficient. Because app container mount home directory according to `HOST_APPS_STATE_FOLDER` (i.e. `-v ${HOST_APPS_STATE_FOLDER}/${app_state_folder}/${app_title}:/home/retro`)
+Keeping `HOST_APPS_STATE_FOLDER` unchanged and only modifying `-v /mnt/drive/wolf:/etc/wolf:rw` is not sufficient.
+Because app container mount home directory according to `HOST_APPS_STATE_FOLDER` (i.e. `-v ${HOST_APPS_STATE_FOLDER}/${app_state_folder}/${app_title}:/home/retro`)
 
 Since Wolf keeps the configuration in `/etc/wolf/cfg`, you need to add an additional mount to ensure that Wolf's configuration is persistently stored (i.e., -v `/mnt/drive/wolf/cfg:/etc/wolf/cfg:rw`).
 
@@ -185,12 +186,23 @@ source = "audiotestsrc wave=ticks is-live=true"
 <1> *title*: this is the name that will be displayed in Moonlight
 <2> *start_virtual_compositor*: set to True if this app needs our custom virtual compositor (TODO: document this better)
 <3> *app_state_folder*: the folder where the app will store permanent data, see: xref:data_setup[]
-<4> *icon_png_path*: this is the box art that will be displayed in Moonlight (PNG, ideally 200x266 or 628x888 pixels)
+<4> *icon_png_path*: this is the box art that will be displayed in Moonlight, see: xref:custom_images[]
 <5> *runner*: the type of process to run in order to start this app, see: xref:_app_runner[]
 <6> *video*: here it's possible to override the default video pipeline variables defined in: xref:_gstreamer[]
 <7> *audio*: here it's possible to override the default audio pipeline variables defined in: xref:_gstreamer[]
 
 See more examples in the xref:gstreamer.adoc[] page.
+
+[#custom_images]
+=== Custom icons in Moonlight clients
+
+The `icon_png_path` specifies the icon to be shown in Moonlight clients for each app.
+The image must be a PNG, ideally 200x266 or 628x888 pixels.
+You can specify the location for the image in three different ways:
+
+* A URL, ex: `"https://games-on-whales.github.io/wildlife/apps/steam/assets/icon.png"`
+* A path relative to the `HOST_APPS_STATE_FOLDER`, ex: `"icons/icon.png"`
+* An absolute path, ex: `"/mnt/path/to/files/icon.png"`
 
 === Override the default joypad mapping
 
@@ -229,7 +241,6 @@ mouse_acceleration = 1.0
 v_scroll_acceleration = 1.0
 h_scroll_acceleration = 1.0
 ....
-
 
 [#_app_runner]
 ==== App Runner
@@ -279,7 +290,8 @@ base_create_json = """
 """
 ....
 
-<1> *mounts*: Here you can define any additional mount that you want to add to the container. For example, you can add `mounts = ["/media/data/games:/games:rw"]` if you want to share games files between host and app container.
+<1> *mounts*: Here you can define any additional mount that you want to add to the container.
+For example, you can add `mounts = ["/media/data/games:/games:rw"]` if you want to share games files between host and app container.
 <2> *base_create_json*: here you can re-define any property that's defined in the docker API JSON format, see: https://docs.docker.com/engine/api/v1.40/#tag/Container/operation/ContainerCreate[docs.docker.com/engine/api/v1.40]
 
 [#_gstreamer]
@@ -326,7 +338,8 @@ Usage is controlled by environment variables on `[apps.runner]` configs:
 [WARNING]
 ====
 Gamescope have some known issues:
-- It may be unstable with some Nvidia driver versions. See https://github.com/games-on-whales/wolf/issues/60[#60].
+- It may be unstable with some Nvidia driver versions.
+See https://github.com/games-on-whales/wolf/issues/60[#60].
 - It doesn't support multiple windows which may cause issues with multi-window applications like Steam desktop UI.
 
 Switch to Gamescope only if you encounter issues with Sway.
@@ -473,30 +486,34 @@ env = [
 Using configuration file allow more layouts to be configured.
 
 .Note: configuration file is only supported for Sway compositor and won't have any effect wih Gamescope.
-
 ==== Create a Configuration File
 
 Create a config file at `${HOST_APPS_STATE_FOLDER}/cfg/90-custom.conf` with the following content:
+
 ....
 input type:keyboard {
     xkb_layout "fr,us"
     xkb_numlock "enable"
 }
 ....
-* xkb_layout : The first layout code you set will be the default layout. Add other layouts separated by commas.
+
+* xkb_layout : The first layout code you set will be the default layout.
+Add other layouts separated by commas.
 * xkb_numlock "enable" turns on NumLock by default.
 
 ==== Configure Container Mounts
 
 In the same folder, edit `${HOST_APPS_STATE_FOLDER}/cfg/config.toml`
 For each container where you want to use the custom layout, edit the "mounts" variable as follows:
+
 ....
 mounts = [
     "${HOST_APPS_STATE_FOLDER}/cfg/90-custom.conf:/etc/sway/config.d/90-custom.conf",
 ]
 ....
 
-This ensures that the config is not overwritten. On the next app restart, the keyboard layout will be set to the default one specified.
+This ensures that the config is not overwritten.
+On the next app restart, the keyboard layout will be set to the default one specified.
 
 ==== Switching Layouts
 
@@ -504,17 +521,21 @@ This ensures that the config is not overwritten. On the next app restart, the ke
 
 Start the console in Moonlight.
 Use the command:
+
 ....
 swaymsg input type:keyboard xkb_switch_layout next
 ....
 
 ===== Creating a Steam Shortcut for Layout Switching
+
 In Steam, add a "Non-Steam Game", and select anything as the target.
 Once the game is created in Steam, Right-click on it and select "Properties".
 In the "Target" field, enter:
+
 ....
 /bin/bash -c "swaymsg input type:keyboard xkb_switch_layout next"
 ....
+
 Rename the game to "Switch Layout".
 Close the properties window.
 

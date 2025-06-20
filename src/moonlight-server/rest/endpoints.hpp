@@ -2,6 +2,8 @@
 
 #include <control/control.hpp>
 #include <crypto/crypto.hpp>
+#include <curl/curl.h>
+#include <curl/easy.h>
 #include <events/events.hpp>
 #include <filesystem>
 #include <functional>
@@ -332,6 +334,44 @@ void applist(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>:
   send_xml<SimpleWeb::HTTPS>(response, SimpleWeb::StatusCode::success_ok, xml);
 }
 
+std::optional<std::ifstream> get_file_content(const std::filesystem::path &path) {
+  std::ifstream asset_file(path, std::ios::binary);
+  if (!asset_file) {
+    return {};
+  }
+  return asset_file;
+}
+
+std::optional<std::string> curl_download(const std::string &url) {
+  auto curl = curl_easy_init();
+  if (curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    /* Set custom writer (in order to receive back the response) */
+    curl_easy_setopt(curl,
+                     CURLOPT_WRITEFUNCTION,
+                     static_cast<size_t (*)(char *, size_t, size_t, void *)>(
+                         [](char *ptr, size_t size, size_t nmemb, void *read_buf) {
+                           *(static_cast<std::string *>(read_buf)) += std::string{ptr, size * nmemb};
+                           return size * nmemb;
+                         }));
+    std::string read_buf;
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buf);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1L);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    auto res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    if (res != CURLE_OK) {
+      logs::log(logs::warning, "Could not download asset from {}, {}", url, curl_easy_strerror(res));
+    } else {
+      return read_buf;
+    }
+  }
+  return {};
+}
+
 void appasset(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Response> &response,
               const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Request> &request,
               const immer::box<state::AppState> &state) {
@@ -352,22 +392,34 @@ void appasset(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>
   }
   auto icon_path = app.value()->base.icon_png_path.value();
 
-  std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
-  auto asset_path = std::filesystem::path(host_state_folder) / icon_path;
-
-  std::ifstream asset_file(asset_path, std::ios::binary);
-  if (!asset_file) {
-    logs::log(logs::warning, "Could not open configured asset: {}", asset_path.string());
-    response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
-    response->close_connection_after_response = true;
-    return;
-  }
-
   SimpleWeb::CaseInsensitiveMultimap asset_headers;
   asset_headers.emplace("Content-Type", "image/png");
-  logs::log(logs::trace, "Sending asset {}", asset_path.string());
-  response->write(SimpleWeb::StatusCode::success_ok, asset_file, asset_headers);
   response->close_connection_after_response = true;
+
+  if (icon_path.starts_with("/")) { // Absolute path
+    auto asset_path = std::filesystem::path(icon_path);
+    if (auto file_content = get_file_content(asset_path)) {
+      response->write(SimpleWeb::StatusCode::success_ok, file_content.value(), asset_headers);
+    } else {
+      logs::log(logs::warning, "Could not open configured asset: {}", asset_path.string());
+      response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
+    }
+  } else if (icon_path.starts_with("http")) { // URL
+    if (auto file_content = curl_download(icon_path)) {
+      response->write(SimpleWeb::StatusCode::success_ok, file_content.value(), asset_headers);
+    } else {
+      response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
+    }
+  } else { // Assume it's a relative path (legacy setting)
+    std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
+    auto asset_path = std::filesystem::path(host_state_folder) / icon_path;
+    if (auto file_content = get_file_content(asset_path)) {
+      response->write(SimpleWeb::StatusCode::success_ok, file_content.value(), asset_headers);
+    } else {
+      logs::log(logs::warning, "Could not open configured asset: {}", asset_path.string());
+      response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
+    }
+  }
 }
 
 auto create_run_session(const SimpleWeb::CaseInsensitiveMultimap &headers,
