@@ -109,6 +109,9 @@ parse_apps(const std::vector<BaseApp> &apps,
            const std::string &default_app_render_node,
            const std::string &default_gst_render_node,
            const BaseAppVideoOverride &default_video_settings,
+           const std::string &h264_video_params,
+           const std::string &hevc_video_params,
+           const std::string &av1_video_params,
            const BaseAppAudioOverride &default_audio_settings,
            SessionsAtoms running_sessions,
            const std::shared_ptr<events::EventBusType> &ev_bus) {
@@ -131,7 +134,7 @@ parse_apps(const std::vector<BaseApp> &apps,
         auto h264_gst_pipeline = fmt::format(
             "{} !\n{} !\n{} !\n{}", //
             app_video_settings.source.value_or(default_video_settings.source.value()),
-            app_video_settings.video_params.value_or(default_video_settings.video_params.value()),
+            app_video_settings.video_params.value_or(h264_video_params),
             app_video_settings.h264_encoder.value_or(default_video_settings.h264_encoder.value()),
             app_video_settings.sink.value_or(default_video_settings.sink.value()));
 
@@ -139,7 +142,7 @@ parse_apps(const std::vector<BaseApp> &apps,
             default_video_settings.hevc_encoder.has_value()
                 ? fmt::format("{} !\n{} !\n{} !\n{}", //
                               app_video_settings.source.value_or(default_video_settings.source.value()),
-                              app_video_settings.video_params.value_or(default_video_settings.video_params.value()),
+                              app_video_settings.video_params.value_or(hevc_video_params),
                               app_video_settings.hevc_encoder.value_or(default_video_settings.hevc_encoder.value()),
                               app_video_settings.sink.value_or(default_video_settings.sink.value()))
                 : "";
@@ -148,7 +151,7 @@ parse_apps(const std::vector<BaseApp> &apps,
             default_video_settings.av1_encoder.has_value()
                 ? fmt::format("{} !\n{} !\n{} !\n{}", //
                               app_video_settings.source.value_or(default_video_settings.source.value()),
-                              app_video_settings.video_params.value_or(default_video_settings.video_params.value()),
+                              app_video_settings.video_params.value_or(av1_video_params),
                               app_video_settings.av1_encoder.value_or(default_video_settings.av1_encoder.value()),
                               app_video_settings.sink.value_or(default_video_settings.sink.value()))
                 : "";
@@ -192,24 +195,7 @@ Config load_or_default(const std::string &source,
   // First check the version of the config file
   auto base_cfg = rfl::toml::load<BaseConfig, rfl::DefaultIfMissing>(source).value();
   auto version = base_cfg.config_version.value_or(0);
-  if (version <= 4) {
-    logs::log(logs::warning, "Found old config file, migrating to newer version");
-
-    std::filesystem::rename(source, source + ".old");
-    auto v3 = toml::parse_file(source + ".old");
-    create_default(source);
-    auto v5 = toml::parse_file(source);
-    // Copy back everything apart from the Gstreamer pipelines
-    v5.insert_or_assign("hostname", v3.at("hostname"));
-    v5.insert_or_assign("uuid", v3.at("uuid"));
-    v5.insert_or_assign("apps", v3.at("apps"));
-    v5.insert_or_assign("paired_clients", v3.at("paired_clients"));
-
-    std::ofstream out_file;
-    out_file.open(source);
-    out_file << v5;
-    out_file.close();
-  } else if (version <= 5) {
+  if (version <= 5) {
     logs::log(logs::warning, "Found old config file, migrating to newer version");
     std::filesystem::rename(source, source + ".v4.old");
     auto v4 = toml::parse_file(source + ".v4.old");
@@ -219,7 +205,6 @@ Config load_or_default(const std::string &source,
     v5.insert_or_assign("hostname", v4.at("hostname"));
     v5.insert_or_assign("uuid", v4.at("uuid"));
     v5.insert_or_assign("paired_clients", v4.at("paired_clients"));
-    v5.insert_or_assign("gstreamer", v4.at("gstreamer"));
     // Insert old `apps` into the new `profiles` for the default profile (`user`)
     const auto default_moonlight_apps = R""""(
     id = "moonlight-profile-id"
@@ -243,7 +228,7 @@ Config load_or_default(const std::string &source,
     [apps.video]
     source = """
     videotestsrc pattern=ball flip=true is-live=true !
-    video/x-raw, framerate={fps}/1
+    video/x-raw, framerate={fps}/1, width={width}, height={height}
     \
     """
 
@@ -375,8 +360,25 @@ Config load_or_default(const std::string &source,
   default_base_video.hevc_encoder = hevc_encoder.value().encoder_pipeline;
   default_base_video.av1_encoder = av1_encoder.value().encoder_pipeline;
 
-  default_base_video.video_params = use_zero_copy ? h264_encoder->video_params_zero_copy.value_or("")
-                                                  : h264_encoder->video_params.value_or("");
+  auto empty_enc = GstEncoderDefault{};
+  auto default_h264 = utils::get_optional(default_gst_encoder_settings, h264_encoder.value_or(GstEncoder{}).plugin_name)
+                          .value_or(empty_enc);
+  auto default_hevc = utils::get_optional(default_gst_encoder_settings, hevc_encoder.value_or(GstEncoder{}).plugin_name)
+                          .value_or(empty_enc);
+  auto default_av1 = utils::get_optional(default_gst_encoder_settings, av1_encoder.value_or(GstEncoder{}).plugin_name)
+                         .value_or(empty_enc);
+
+  auto h264_video_params = use_zero_copy
+                               ? h264_encoder->video_params_zero_copy.value_or(default_h264.video_params_zero_copy)
+                               : h264_encoder->video_params.value_or(default_h264.video_params);
+
+  auto hevc_video_params = use_zero_copy
+                               ? hevc_encoder->video_params_zero_copy.value_or(default_hevc.video_params_zero_copy)
+                               : hevc_encoder->video_params.value_or(default_hevc.video_params);
+
+  auto av1_video_params = use_zero_copy
+                              ? av1_encoder->video_params_zero_copy.value_or(default_av1.video_params_zero_copy)
+                              : av1_encoder->video_params.value_or(default_av1.video_params);
 
   auto clients_atom = std::make_shared<immer::atom<PairedClientList>>(paired_clients);
 
@@ -391,6 +393,9 @@ Config load_or_default(const std::string &source,
                                                               default_app_render_node,
                                                               default_gst_render_node,
                                                               default_base_video,
+                                                              h264_video_params,
+                                                              hevc_video_params,
+                                                              av1_video_params,
                                                               default_base_audio,
                                                               running_sessions,
                                                               ev_bus)};

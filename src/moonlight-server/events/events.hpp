@@ -142,6 +142,7 @@ struct VideoSettings {
   int refresh_rate;
   std::string wayland_render_node;
   std::string runner_render_node;
+  std::string video_producer_buffer_caps;
 };
 
 struct AudioSettings {

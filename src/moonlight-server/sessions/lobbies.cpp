@@ -33,24 +33,54 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
         { // Start Wayland compositor and Gstreamer producer pipeline
           logs::log(logs::debug, "[LOBBY] Create wayland compositor");
 
-          virtual_display::DisplayMode display_mode = {.width = lobby_settings->video_settings.width,
-                                                       .height = lobby_settings->video_settings.height,
-                                                       .refreshRate = lobby_settings->video_settings.refresh_rate};
+          std::shared_ptr<boost::promise<streaming::WaylandDisplayReady>> on_ready =
+              std::make_shared<boost::promise<streaming::WaylandDisplayReady>>();
 
-          auto wl_state =
-              virtual_display::create_wayland_display({}, lobby_settings->video_settings.wayland_render_node);
-          if (wl_state) {
-            virtual_display::set_resolution(*wl_state, display_mode);
+          std::thread([lobby, lobby_settings, ev_bus, on_ready]() {
+            streaming::start_video_producer(lobby->id,
+                                            lobby_settings->video_settings.video_producer_buffer_caps,
+                                            lobby_settings->video_settings.wayland_render_node,
+                                            {.width = lobby_settings->video_settings.width,
+                                             .height = lobby_settings->video_settings.height,
+                                             .refreshRate = lobby_settings->video_settings.refresh_rate},
+                                            on_ready,
+                                            ev_bus);
+          }).detach();
 
+          auto w_display_ready = on_ready->get_future().then([lobby, runtime_dir, ev_bus, audio_server, lobby_settings](
+                                                                 auto fut) {
+            streaming::WaylandDisplayReady ready = fut.get();
+
+            auto wl_state = virtual_display::create_wayland_display(ready.wayland_plugin, ready.wayland_socket_name);
+            // Set the wayland display
             lobby->wayland_display->store(wl_state);
 
-            // Start Gstreamer producer pipeline
-            std::thread([lobby, wl_state, display_mode, ev_bus]() {
-              streaming::start_video_producer(lobby->id, wl_state, display_mode, ev_bus);
-            }).detach();
-          } else {
-            logs::log(logs::error, "[LOBBY] Failed to create wayland compositor");
-          }
+            { // Start runner
+              logs::log(logs::debug, "[LOBBY] Start runner");
+              std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
+              auto full_path = std::filesystem::path(host_state_folder) / lobby_settings->runner_state_folder;
+              logs::log(logs::debug, "Host app state folder: {}, creating paths", full_path.string());
+              std::filesystem::create_directories(full_path);
+
+              std::thread([=]() {
+                start_runner(lobby->runner,
+                             lobby->plugged_devices_queue,
+                             immer::box<RunnerArgs>{RunnerArgs{.session_id = lobby->id,
+                                                               .video_settings = lobby_settings->video_settings,
+                                                               .wayland_display = lobby->wayland_display->load(),
+                                                               .audio_server = audio_server,
+                                                               .audio_sink = lobby->audio_sink->load(),
+                                                               .state_folder = full_path,
+                                                               .xdg_runtime_dir = runtime_dir,
+                                                               .client_settings = lobby_settings->client_settings}});
+                // Runner process ended, stop the lobby
+                lobby->wayland_display->store(nullptr);
+
+                ev_bus->fire_event<immer::box<events::StopLobbyEvent>>(
+                    immer::box<events::StopLobbyEvent>{events::StopLobbyEvent{.lobby_id = lobby->id}});
+              }).detach();
+            }
+          });
         }
 
         { // Create audio virtual sink
@@ -74,32 +104,6 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
                                               audio::get_server_name(audio_server));
             }).detach();
           }
-        }
-
-        { // Start runner
-          logs::log(logs::debug, "[LOBBY] Start runner");
-          std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
-          auto full_path = std::filesystem::path(host_state_folder) / lobby_settings->runner_state_folder;
-          logs::log(logs::debug, "Host app state folder: {}, creating paths", full_path.string());
-          std::filesystem::create_directories(full_path);
-
-          std::thread([=]() {
-            start_runner(lobby->runner,
-                         lobby->plugged_devices_queue,
-                         immer::box<RunnerArgs>{RunnerArgs{.session_id = lobby->id,
-                                                           .video_settings = lobby_settings->video_settings,
-                                                           .wayland_display = lobby->wayland_display->load(),
-                                                           .audio_server = audio_server,
-                                                           .audio_sink = lobby->audio_sink->load(),
-                                                           .state_folder = full_path,
-                                                           .xdg_runtime_dir = runtime_dir,
-                                                           .client_settings = lobby_settings->client_settings}});
-            // Runner process ended, stop the lobby
-            lobby->wayland_display->store(nullptr);
-
-            app_state->event_bus->fire_event<immer::box<events::StopLobbyEvent>>(
-                immer::box<events::StopLobbyEvent>{events::StopLobbyEvent{.lobby_id = lobby->id}});
-          }).detach();
         }
       }));
 
@@ -134,6 +138,7 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
         auto wl_state = lobby->wayland_display->load();
         session->mouse->emplace(virtual_display::WaylandMouse(wl_state));
         session->keyboard->emplace(virtual_display::WaylandKeyboard(wl_state));
+        session->touch_screen->emplace(virtual_display::WaylandTouchScreen(wl_state));
 
         // Switch over all joypads present in the session into the lobby
         events::JoypadList joypads = session->joypads->load();
@@ -153,7 +158,7 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
                                         .udev_events = plug_ev.udev_events,
                                         .udev_hw_db_entries = plug_ev.udev_hw_db_entries}});
         }
-        // TODO: hotplug pen_tablet and touch_screen
+        // TODO: hotplug pen_tablet
 
         // Switch audio/video gstreamer stream producers
         app_state->event_bus->fire_event(immer::box<events::SwitchStreamProducerEvents>{
@@ -190,6 +195,7 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
         auto wl_state = session->wayland_display->load();
         session->mouse->emplace(virtual_display::WaylandMouse(wl_state));
         session->keyboard->emplace(virtual_display::WaylandKeyboard(wl_state));
+        session->touch_screen->emplace(virtual_display::WaylandTouchScreen(wl_state));
 
         // Switch over all joypads present in the lobby back into the original session
         events::JoypadList joypads = session->joypads->load();

@@ -154,25 +154,29 @@ void run() {
   // HTTP APIs
   auto http_thread = std::thread([local_state]() {
     HttpServer server = HttpServer();
-    HTTPServers::startServer(&server, local_state, state::HTTP_PORT);
+    HTTPServers::startServer(&server, local_state, state::get_port(state::HTTP_PORT));
   });
 
   // HTTPS APIs
   std::thread([local_state, p_key_file, p_cert_file]() {
     HttpsServer server = HttpsServer(p_cert_file, p_key_file);
-    HTTPServers::startServer(&server, local_state, state::HTTPS_PORT);
+    HTTPServers::startServer(&server, local_state, state::get_port(state::HTTPS_PORT));
   }).detach();
 
   // RTSP
   std::thread([sessions = local_state->running_sessions]() {
-    rtsp::run_server(state::RTSP_SETUP_PORT, sessions);
+    rtsp::run_server(state::get_port(state::RTSP_SETUP_PORT), sessions);
   }).detach();
 
   // Control
   std::thread([sessions = local_state->running_sessions, ev_bus = local_state->event_bus]() {
-    control::run_control(state::CONTROL_PORT, sessions, ev_bus);
+    control::run_control(state::get_port(state::CONTROL_PORT), sessions, ev_bus);
   }).detach();
 
+  // RTP
+  rtp::start_rtp_ping(state::get_port(state::VIDEO_PING_PORT),
+                      state::get_port(state::AUDIO_PING_PORT),
+                      local_state->event_bus);
   // Wolf API server
   std::thread([local_state]() { wolf::api::start_server(local_state); }).detach();
 

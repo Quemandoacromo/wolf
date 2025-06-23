@@ -26,27 +26,16 @@ void start_runner(std::shared_ptr<events::Runner> runner,
   full_env.set("PULSE_SERVER", audio_server_name);
   mounted_paths.push_back({audio_server_name, audio_server_name});
 
-  if (auto wl_state = args->wayland_display) {
-    full_env.set("GAMESCOPE_WIDTH", std::to_string(args->video_settings.width));
-    full_env.set("GAMESCOPE_HEIGHT", std::to_string(args->video_settings.height));
-    full_env.set("GAMESCOPE_REFRESH", std::to_string(args->video_settings.refresh_rate));
+  full_env.set("GAMESCOPE_WIDTH", std::to_string(args->video_settings.width));
+  full_env.set("GAMESCOPE_HEIGHT", std::to_string(args->video_settings.height));
+  full_env.set("GAMESCOPE_REFRESH", std::to_string(args->video_settings.refresh_rate));
+  full_env.set("WOLF_VIDEO_BUFFER_CAPS", args->video_settings.video_producer_buffer_caps);
 
-    /* Setup additional devices paths */
-    auto graphic_devices = virtual_display::get_devices(*wl_state);
-    std::copy(graphic_devices.begin(), graphic_devices.end(), std::back_inserter(all_devices));
-
-    /* Setup additional env paths */
-    for (const auto &env : virtual_display::get_env(*wl_state)) {
-      auto split = utils::split(env, '=');
-
-      if (split[0] == "WAYLAND_DISPLAY") {
-        auto socket_path = fmt::format("{}/{}", args->xdg_runtime_dir, split[1]);
-        logs::log(logs::debug, "WAYLAND_DISPLAY={}", socket_path);
-        mounted_paths.push_back({socket_path, socket_path});
-      }
-
-      full_env.set(utils::to_string(split[0]), utils::to_string(split[1]));
-    }
+  if (auto w_display = args->wayland_display.get()) {
+    auto socket_name = virtual_display::get_wayland_socket_name(*w_display);
+    auto wayland_socket = std::filesystem::path(args->xdg_runtime_dir) / socket_name;
+    mounted_paths.push_back({wayland_socket, wayland_socket});
+    full_env.set("WAYLAND_DISPLAY", socket_name);
   }
 
   /* Adding custom state folder */
