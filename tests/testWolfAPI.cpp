@@ -448,8 +448,8 @@ TEST_CASE("Lobbies APIs", "[API]") {
   { // Test creating a lobby
     auto new_lobby = CreateLobbyRequest{.profile_id = "test_profile",
                                         .name = "test_lobby",
-                                        .pin = pin,
                                         .multi_user = false,
+                                        .pin = pin,
                                         .stop_when_everyone_leaves = false,
                                         .video_settings = {.width = 1920,
                                                            .height = 1080,
