@@ -42,7 +42,6 @@ static void application_message_handler(GstBus *bus, GstMessage *msg, gpointer d
   }
 }
 
-
 std::pair<std::string, std::string> get_color_params(immer::box<events::VideoSession> video_session) {
   std::string color_range = (video_session->color_range == events::ColorRange::JPEG) ? "jpeg" : "mpeg2";
   std::string color_space;
