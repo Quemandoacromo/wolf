@@ -253,32 +253,16 @@ Config load_or_default(const std::string &source,
   auto cfg = rfl::toml::load<WolfConfig, rfl::DefaultIfMissing>(source).value();
 
   auto default_gst_video_settings = cfg.gstreamer.video;
-  if (default_gst_video_settings.default_source.find("appsrc") != std::string::npos) {
-    logs::log(logs::debug, "Found appsrc in default_source, migrating to interpipesrc");
-    default_gst_video_settings.default_source =
-        "interpipesrc listen-to={session_id}_video is-live=true "
-        "stream-sync=restart-ts max-bytes=0 max-buffers=1 leaky-type=downstream";
-  }
-  if (default_gst_video_settings.default_sink.find("udpsink") != std::string::npos) {
-    logs::log(logs::debug, "Found udpsink in default_sink, migrating to appsink");
-    default_gst_video_settings.default_sink = "rtpmoonlightpay_video name=moonlight_pay "
-                                              "payload_size={payload_size} fec_percentage={fec_percentage} "
-                                              "min_required_fec_packets={min_required_fec_packets} ! "
-                                              "appsink sync=false name=wolf_udp_sink";
-  }
-
   auto default_gst_audio_settings = cfg.gstreamer.audio;
-  if (default_gst_audio_settings.default_source.find("appsrc") != std::string::npos) {
-    logs::log(logs::debug, "Found pulsesrc in default_source, migrating to interpipesrc");
-    default_gst_audio_settings.default_source = "interpipesrc listen-to={session_id}_audio is-live=true "
-                                                "stream-sync=restart-ts max-bytes=0 max-buffers=3 block=false";
+  if (default_gst_video_settings.default_source.find("name=interpipesrc") == std::string::npos) {
+    logs::log(logs::debug, "Found interpipesrc without name, adding it");
+    default_gst_video_settings.default_source =
+        default_gst_video_settings.default_source.replace(0, 12, "interpipesrc name=interpipesrc_{}_video");
   }
-  if (default_gst_audio_settings.default_sink.find("udpsink") != std::string::npos) {
-    logs::log(logs::debug, "Found udpsink in default_sink, migrating to appsink");
-    default_gst_audio_settings.default_sink =
-        "rtpmoonlightpay_audio name=moonlight_pay packet_duration={packet_duration} encrypt={encrypt} "
-        "aes_key=\"{aes_key}\" aes_iv=\"{aes_iv}\" ! "
-        "appsink sync=false name=wolf_udp_sink";
+  if (default_gst_audio_settings.default_source.find("name=interpipesrc") == std::string::npos) {
+    logs::log(logs::debug, "Found interpipesrc without name, adding it");
+    default_gst_audio_settings.default_source =
+        default_gst_audio_settings.default_source.replace(0, 12, "interpipesrc name=interpipesrc_{}_audio");
   }
 
   auto default_gst_encoder_settings = default_gst_video_settings.defaults;

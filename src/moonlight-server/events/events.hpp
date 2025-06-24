@@ -167,6 +167,11 @@ struct CreateLobbyEvent {
    * The app that will be run in the lobby
    */
   std::shared_ptr<Runner> runner;
+
+  /**
+   * A promise to know when the lobby is up and running
+   */
+  rfl::Skip<std::shared_ptr<std::promise<bool>>> on_setup_over = std::make_shared<std::promise<bool>>();
 };
 
 struct JoinLobbyEvent {

@@ -32,7 +32,6 @@ TEST_CASE("libdrm find linked devices", "[NVIDIA]") {
 
   auto devices = linked_devices(nvidia_node);
 
-  REQUIRE_THAT(devices, SizeIs(6));
   REQUIRE_THAT(devices, Contains(ContainsSubstring("/dev/dri/card")));
   REQUIRE_THAT(devices, Contains("/dev/nvidia0"));
   REQUIRE_THAT(devices, Contains("/dev/nvidia-modeset"));

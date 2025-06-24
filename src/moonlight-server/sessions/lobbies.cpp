@@ -80,6 +80,8 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
                     immer::box<events::StopLobbyEvent>{events::StopLobbyEvent{.lobby_id = lobby->id}});
               }).detach();
             }
+
+            lobby_settings->on_setup_over.get()->set_value(true);
           });
         }
 

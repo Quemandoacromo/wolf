@@ -389,8 +389,16 @@ void UnixSocketServer::endpoint_LobbyCreate(const wolf::api::HTTPRequest &req, s
         .runner = state::get_runner(event.value().runner, this->state_->app_state->event_bus)};
     // Fire the event
     state_->app_state->event_bus->fire_event(immer::box<events::CreateLobbyEvent>(create_lobby_ev));
-    auto res = LobbyCreateResponse{.lobby_id = lobby_id};
-    send_http(socket, 200, rfl::json::write(res));
+
+    auto setup_over_future = create_lobby_ev.on_setup_over.get()->get_future();
+    auto result = setup_over_future.wait_for(std::chrono::seconds(10));
+    if (result == std::future_status::timeout) {
+      logs::log(logs::warning, "[API] Lobby setup timed out");
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Lobby setup timed out"}));
+    } else {
+      auto res = LobbyCreateResponse{.lobby_id = lobby_id};
+      send_http(socket, 200, rfl::json::write(res));
+    }
   } else {
     logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, event.error().what());
     send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = event.error().what()}));

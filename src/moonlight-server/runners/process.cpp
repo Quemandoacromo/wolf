@@ -19,7 +19,7 @@ void RunProcess::run(std::string_view session_id,
                      std::string_view render_node) {
   logs::log(logs::debug, "[PROCESS] Starting process: {}", this->run_cmd);
 
-  std::future<std::string> std_out, err_out;
+  std::future<std::string> std_out = {}, err_out = {};
   boost::asio::io_context ios;
   bp::child child_proc;
   bp::group group_proc;
@@ -66,10 +66,10 @@ void RunProcess::run(std::string_view session_id,
   child_proc.wait(); // to avoid a zombie process & get the exit code
 
   auto ex_code = child_proc.exit_code();
-  logs::log(logs::debug, "[PROCESS] Terminated with status code: {}\nstd_out: {}", ex_code, std_out.get());
-  auto errors = err_out.get();
-  if (!errors.empty()) {
-    logs::log(logs::warning, "[PROCESS] Terminated with status code: {}, std_err: {}", ex_code, errors);
+  if (ex_code != 0) {
+    logs::log(logs::warning, "Process exited with code: {}", ex_code);
+  } else {
+    logs::log(logs::debug, "Process exited with code: {}", ex_code);
   }
 
   terminate_handler.unregister();
