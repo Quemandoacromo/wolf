@@ -35,19 +35,13 @@ gboolean structure_each(GQuark field_id, const GValue *value, gpointer user_data
   return TRUE;
 }
 
-gboolean bus_watcher(GstBus *bus, GstMessage *msg, gpointer data) {
-  switch (GST_MESSAGE_TYPE(msg)) {
-  case GST_MESSAGE_APPLICATION: {
-    auto structure = gst_message_get_structure(msg);
-    if (gst_structure_has_name(structure, "wayland.src")) {
-      gst_structure_foreach(structure, structure_each, data);
-    }
+static void application_message_handler(GstBus *bus, GstMessage *msg, gpointer data) {
+  auto structure = gst_message_get_structure(msg);
+  if (gst_structure_has_name(structure, "wayland.src")) {
+    gst_structure_foreach(structure, structure_each, data);
   }
-  default: {
-  }
-  }
-  return TRUE;
 }
+
 
 std::pair<std::string, std::string> get_color_params(immer::box<events::VideoSession> video_session) {
   std::string color_range = (video_session->color_range == events::ColorRange::JPEG) ? "jpeg" : "mpeg2";
@@ -93,7 +87,7 @@ void start_video_producer(const std::string &session_id,
     bus_data_ptr->wayland_plugin.swap(wayland_plugin_ptr);
 
     auto bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline.get()));
-    gst_bus_add_watch(bus, bus_watcher, bus_data_ptr.get());
+    g_signal_connect(bus, "message::application", G_CALLBACK(application_message_handler), bus_data_ptr.get());
     gst_object_unref(bus);
 
     // TODO: pause and resume? Should we do it?

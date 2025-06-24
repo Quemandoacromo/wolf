@@ -126,7 +126,7 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
         }
         logs::log(logs::info, "[LOBBY] Session {} joining lobby {}", session->session_id, lobby->id);
 
-        if (lobby->multi_user && lobby->connected_sessions->load()->size() >= 1) {
+        if (!lobby->multi_user && lobby->connected_sessions->load()->size() >= 1) {
           logs::log(logs::error, "[LOBBY] Lobby {} is full", lobby->id);
           return;
         }
