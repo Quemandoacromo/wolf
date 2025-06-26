@@ -182,7 +182,6 @@ struct JoinLobbyEvent {
    * A promise to know if there's been an error message
    */
   rfl::Skip<std::shared_ptr<std::promise<std::string>>> error_message = std::make_shared<std::promise<std::string>>();
-
 };
 
 struct LeaveLobbyEvent {
