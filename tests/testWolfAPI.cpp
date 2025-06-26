@@ -558,6 +558,9 @@ TEST_CASE("Lobbies APIs", "[API]") {
     REQUIRE(sessions.success);
     REQUIRE(sessions.lobbies.empty());
   }
+
+  // Give it a few seconds to turn down the Gstreamer pipeline
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
 struct SSEEvent {

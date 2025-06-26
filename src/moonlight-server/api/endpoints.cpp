@@ -426,8 +426,21 @@ void UnixSocketServer::endpoint_LobbyJoin(const wolf::api::HTTPRequest &req, std
       send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = err.value()}));
       return;
     }
-    state_->app_state->event_bus->fire_event(immer::box<events::JoinLobbyEvent>(event.value()));
-    send_http(socket, 200, rfl::json::write(GenericSuccessResponse{}));
+    auto lobby_ev = event.value();
+    lobby_ev.error_message = std::make_shared<std::promise<std::string>>();
+    state_->app_state->event_bus->fire_event(immer::box<events::JoinLobbyEvent>(lobby_ev));
+
+    auto error_message_fut = lobby_ev.error_message.get()->get_future();
+    auto future_status = error_message_fut.wait_for(std::chrono::seconds(2));
+    if (future_status == std::future_status::timeout) {
+      logs::log(logs::warning, "[API] Lobby join timed out");
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Lobby join timed out"}));
+    } else if (auto error_message = error_message_fut.get(); !error_message.empty()) {
+      logs::log(logs::warning, "[API] Lobby join failed: {}", error_message);
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = utils::to_string(error_message)}));
+    } else {
+      send_http(socket, 200, rfl::json::write(GenericSuccessResponse{}));
+    }
   } else {
     logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, event.error().what());
     send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = event.error().what()}));

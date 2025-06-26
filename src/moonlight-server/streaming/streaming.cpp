@@ -405,7 +405,9 @@ void start_streaming_audio(immer::box<events::AudioSession> audio_session,
           }
         });
 
-    return immer::array<immer::box<events::EventBusHandlers>>{std::move(pause_handler), std::move(stop_handler)};
+    return immer::array<immer::box<events::EventBusHandlers>>{std::move(pause_handler),
+                                                              std::move(switch_producer_handler),
+                                                              std::move(stop_handler)};
   });
 }
 

@@ -52,6 +52,21 @@ inline std::optional<events::Lobby> get_lobby_by_id(const immer::vector<events::
   }
 }
 
+inline std::optional<events::Lobby> get_lobby_by_connected_session(const immer::vector<events::Lobby> &lobbies,
+                                                                   std::string_view session_id) {
+  for (const events::Lobby &lobby : lobbies) {
+    immer::vector<immer::box<std::string>> sessions = lobby.connected_sessions->load();
+    auto session = std::find_if(sessions.begin(), sessions.end(), [session_id](const auto &session) {
+      return session == session_id;
+    });
+    if (session == sessions.end()) {
+      continue;
+    }
+    return lobby;
+  }
+  return {};
+}
+
 inline std::shared_ptr<events::StreamSession> create_stream_session(immer::box<state::AppState> state,
                                                                     const events::App &run_app,
                                                                     const wolf::config::PairedClient &current_client,

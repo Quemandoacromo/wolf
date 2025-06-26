@@ -178,6 +178,11 @@ struct JoinLobbyEvent {
   const std::string lobby_id;
   const std::size_t moonlight_session_id;
   std::optional<std::vector<short>> pin = std::nullopt;
+  /**
+   * A promise to know if there's been an error message
+   */
+  rfl::Skip<std::shared_ptr<std::promise<std::string>>> error_message = std::make_shared<std::promise<std::string>>();
+
 };
 
 struct LeaveLobbyEvent {
