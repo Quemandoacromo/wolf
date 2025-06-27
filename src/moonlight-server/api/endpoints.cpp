@@ -3,6 +3,7 @@
 #include <rtp/udp-ping.hpp>
 #include <state/config.hpp>
 #include <state/sessions.hpp>
+#include <state/utils.hpp>
 
 namespace wolf::api {
 
@@ -533,6 +534,25 @@ void UnixSocketServer::endpoint_UpdateClientSettings(const HTTPRequest &req, std
 
   auto res = GenericSuccessResponse{.success = true};
   send_http(socket, 200, rfl::json::write(res));
+}
+
+void UnixSocketServer::endpoint_GetIcon(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto icon_path = utils::split(req.query_string, '=');
+  if (icon_path.size() != 2 || icon_path[0] != "icon_path") {
+    auto res = GenericErrorResponse{.error = "Invalid request format, expects 'icon_path' as a query parameter"};
+    send_http(socket, 400, rfl::json::write(res));
+    return;
+  }
+
+  if (auto icon = utils::get_icon(icon_path[1])) {
+    send_http(socket,
+              200,
+              {"Content-Length: " + std::to_string(icon->size()), "Content-Type: image/png"},
+              icon.value());
+  } else {
+    auto res = GenericErrorResponse{.error = "Icon not found"};
+    send_http(socket, 404, rfl::json::write(res));
+  }
 }
 
 } // namespace wolf::api

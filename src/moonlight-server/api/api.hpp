@@ -156,6 +156,15 @@ struct RunnerStartRequest {
   std::string session_id;
 };
 
+struct GetIconRequest {
+  std::string icon_png_path;
+};
+
+struct GetIconResponse {
+  bool success = true;
+  std::string icon_base64;
+};
+
 struct UnixSocket {
   boost::asio::local::stream_protocol::socket socket;
   bool is_alive = true;
@@ -203,6 +212,7 @@ private:
   void endpoint_RunnerStart(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
 
   void endpoint_UpdateClientSettings(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
+  void endpoint_GetIcon(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
 
   void sse_broadcast(const std::string &payload);
   void sse_keepalive(const boost::system::error_code &e);

@@ -53,6 +53,7 @@ inline int get_port(STANDARD_PORTS_MAPPING port) {
   case RTSP_SETUP_PORT:
     return utils::get_env("WOLF_RTSP_SETUP_PORT") ? std::stoi(utils::get_env("WOLF_RTSP_SETUP_PORT")) : RTSP_SETUP_PORT;
   }
+  return -1;
 }
 
 using PairedClientList = immer::vector<immer::box<wolf::config::PairedClient>>;

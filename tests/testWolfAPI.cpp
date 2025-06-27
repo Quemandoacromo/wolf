@@ -563,6 +563,41 @@ TEST_CASE("Lobbies APIs", "[API]") {
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
+TEST_CASE("Utils APIs", "[API]") {
+  auto event_bus = std::make_shared<events::EventBusType>();
+  auto running_sessions = std::make_shared<immer::atom<immer::vector<events::StreamSession>>>();
+  auto config = immer::box<state::Config>(state::load_or_default("config.test.toml", event_bus, running_sessions));
+  auto app_state = immer::box<state::AppState>(state::AppState{
+      .config = config,
+      .pairing_cache = std::make_shared<immer::atom<immer::map<std::string, state::PairCache>>>(),
+      .pairing_atom = std::make_shared<immer::atom<immer::map<std::string, immer::box<events::PairSignal>>>>(),
+      .event_bus = event_bus,
+      .lobbies = std::make_shared<immer::atom<immer::vector<events::Lobby>>>(),
+      .running_sessions = running_sessions});
+  // Start the server
+  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  server_thread.detach();
+
+  // Wait for the server to start
+  std::this_thread::sleep_for(std::chrono::milliseconds(42));
+
+  auto curl = curl_ptr(curl_easy_init(), ::curl_easy_cleanup);
+  curl_easy_setopt(curl.get(), CURLOPT_UNIX_SOCKET_PATH, "/tmp/wolf.sock");
+  curl_easy_setopt(curl.get(), CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+
+  { // Test that calling
+    // http://localhost/api/v1/utils/get-icon\?icon_path\=https://games-on-whales.github.io/wildlife/apps/firefox/assets/icon.png
+    // returns the content of the PNG file
+    auto response = req(curl.get(),
+                        HTTPMethod::GET,
+                        "http://localhost/api/v1/utils/get-icon?icon_path=https://games-on-whales.github.io/wildlife/"
+                        "apps/firefox/assets/icon.png");
+
+    REQUIRE(response);
+    REQUIRE_THAT(response->second, Catch::Matchers::ContainsSubstring("PNG"));
+  }
+}
+
 struct SSEEvent {
   std::string event;
   std::string data;

@@ -297,6 +297,15 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
       });
 
   /**
+   * Utils
+   */
+  state_->http.add(HTTPMethod::GET,
+                   "/api/v1/utils/get-icon",
+                   {.summary = "Get the icon for a given app, pass the icon_path as a query parameter ex: "
+                               "/api/v1/utils/get-icon?icon_path=/etc/wolf/icons/steam.png",
+                    .handler = [this](auto req, auto socket) { endpoint_GetIcon(req, socket); }});
+
+  /**
    * OpenAPI schema
    */
 
