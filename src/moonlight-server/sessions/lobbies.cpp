@@ -212,11 +212,14 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
               },
               *joypad);
           app_state->event_bus->fire_event(immer::box<events::PlugDeviceEvent>(plug_ev));
-          // Unplug them from the current session
+          // Unplug it from the current session
           app_state->event_bus->fire_event(immer::box<events::UnplugDeviceEvent>{
               events::UnplugDeviceEvent{.session_id = std::to_string(session->session_id),
                                         .udev_events = plug_ev.udev_events,
                                         .udev_hw_db_entries = plug_ev.udev_hw_db_entries}});
+
+          // Add it to the current lobby devices queue
+          lobby->plugged_devices_queue->push(immer::box<events::PlugDeviceEvent>{plug_ev});
         }
         // TODO: hotplug pen_tablet
 

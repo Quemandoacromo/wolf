@@ -336,8 +336,9 @@ void UnixSocketServer::sse_broadcast(const std::string &payload) {
                              boost::asio::buffer(payload),
                              [this, socket](const boost::system::error_code &ec, std::size_t /*length*/) {
                                if (ec) {
-                                 logs::log(logs::warning, "[API] Error sending event: {}", ec.message());
+                                 logs::log(logs::debug, "[API] Error sending event: {}", ec.message());
                                  close(*socket);
+                                 cleanup_sockets();
                                }
                              });
   }
