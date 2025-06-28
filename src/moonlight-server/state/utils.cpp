@@ -30,7 +30,13 @@ std::optional<std::string> curl_get(std::string_view url) {
     if (res != CURLE_OK) {
       logs::log(logs::warning, "Could not download asset from {}, {}", url, curl_easy_strerror(res));
     } else {
-      return read_buf;
+      long response_code;
+      curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+      if (response_code == 200) {
+        return read_buf;
+      } else {
+        logs::log(logs::warning, "Could not download asset from {}, response code: {}", url, response_code);
+      }
     }
   }
   return {};

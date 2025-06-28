@@ -596,6 +596,16 @@ TEST_CASE("Utils APIs", "[API]") {
     REQUIRE(response);
     REQUIRE_THAT(response->second, Catch::Matchers::ContainsSubstring("PNG"));
   }
+
+  { // Test that when getting a non 200 from a remote resource we don't return an icon
+    auto response = req(curl.get(),
+                        HTTPMethod::GET,
+                        "http://localhost/api/v1/utils/get-icon?icon_path=https://games-on-whales.github.io/wildlife/"
+                        "THIS_PAGE_DOES_NOT_EXISTS");
+
+    REQUIRE(response);
+    REQUIRE(response->first == 404);
+  }
 }
 
 struct SSEEvent {
