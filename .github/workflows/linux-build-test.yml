@@ -42,7 +42,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.85.1
+          toolchain: stable
 
       - name: Setup gst-wayland-display
         run: |
@@ -125,7 +125,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.85.1
+          toolchain: stable
 
       - name: Setup gst-wayland-display
         run: |
