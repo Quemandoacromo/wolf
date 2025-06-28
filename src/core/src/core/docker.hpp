@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdlib>
+#include <functional>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -135,6 +136,19 @@ public:
    * Downloads a Docker image
    */
   bool pull_image(std::string_view image_name, std::string_view registry_auth = {}) const;
+
+  struct DockerProgressEvent {
+    std::string layer_id;
+    long current_progress;
+    long total;
+  };
+
+  /**
+   * Download a docker image with a callback for progress
+   */
+  bool pull_image(std::string_view image_name,
+                  std::string_view registry_auth,
+                  const std::function<void(const DockerProgressEvent &)> &progress_fn) const;
 
   bool exec(std::string_view id, const std::vector<std::string_view> &command, std::string_view user = "root") const;
 

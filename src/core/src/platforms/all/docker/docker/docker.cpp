@@ -269,26 +269,121 @@ bool DockerAPI::remove_by_name(std::string_view name, bool remove_volumes, bool 
 }
 
 bool DockerAPI::pull_image(std::string_view image_name, std::string_view registry_auth) const {
+  return pull_image(image_name, registry_auth, [image_name](const DockerProgressEvent &progress) {
+    logs::log(logs::debug,
+              "[DOCKER] Pulling image {} - {} {}%)",
+              image_name,
+              progress.layer_id,
+              progress.total != 0 ? progress.current_progress * 100 / progress.total : 0);
+  });
+}
+
+bool DockerAPI::pull_image(std::string_view image_name,
+                           std::string_view registry_auth,
+                           const std::function<void(const DockerProgressEvent &)> &progress_fn) const {
   if (auto conn = docker_connect(socket_path)) {
     auto api_url = fmt::format("http://localhost/{}/images/create?fromImage={}", DOCKER_API_VERSION, image_name);
-    std::vector<std::string> headers = {};
+
+    struct PullState {
+      std::string buffer = {};
+      const std::function<void(const DockerProgressEvent &)> &progress_fn;
+      std::optional<std::string> error_msg = std::nullopt;
+    };
+
+    PullState state{.progress_fn = progress_fn};
+
+    auto write_callback = +[](char *ptr, size_t size, size_t nmemb, void *userdata) -> size_t {
+      auto *pull_state = static_cast<PullState *>(userdata);
+      const size_t data_size = size * nmemb;
+      pull_state->buffer.append(ptr, data_size);
+
+      size_t pos;
+      while ((pos = pull_state->buffer.find('\n')) != std::string::npos) {
+        std::string line = pull_state->buffer.substr(0, pos);
+        pull_state->buffer.erase(0, pos + 1);
+        if (!line.empty() && line.back() == '\r') {
+          line.pop_back();
+        }
+
+        if (line.empty()) {
+          continue;
+        }
+
+        try {
+          auto data = json::parse(line);
+          if (data.is_object()) {
+            auto &obj = data.as_object();
+            DockerProgressEvent event{};
+
+            if (auto error = obj.find("error"); error != obj.end() && error->value().is_object()) {
+              pull_state->error_msg = error->value().as_string().c_str();
+            }
+
+            if (auto it = obj.find("id"); it != obj.end() && it->value().is_string()) {
+              event.layer_id = it->value().as_string().c_str();
+              if (auto it = obj.find("progressDetail"); it != obj.end() && it->value().is_object()) {
+                auto &detail = it->value().as_object();
+                if (auto cur = detail.find("current"); cur != detail.end() && cur->value().is_int64()) {
+                  event.current_progress = cur->value().as_int64();
+                }
+                if (auto tot = detail.find("total"); tot != detail.end() && tot->value().is_int64()) {
+                  event.total = tot->value().as_int64();
+                }
+                pull_state->progress_fn(event);
+              }
+            }
+          }
+        } catch (...) {
+          logs::log(logs::warning, "Unable to parse progress event: {}", line);
+        }
+      }
+      return data_size;
+    };
+
+    curl_easy_setopt(conn->get(), CURLOPT_URL, api_url.c_str());
+    curl_easy_setopt(conn->get(), CURLOPT_POST, 1L);
+    curl_easy_setopt(conn->get(), CURLOPT_POSTFIELDS, "");
+    curl_easy_setopt(conn->get(), CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(conn->get(), CURLOPT_WRITEDATA, &state);
+
+    struct curl_slist_deleter {
+      void operator()(curl_slist *list) const {
+        if (list)
+          curl_slist_free_all(list);
+      }
+    };
+    std::unique_ptr<curl_slist, curl_slist_deleter> headers;
+
     if (!registry_auth.empty()) {
-      headers.push_back(fmt::format("X-Registry-Auth: {}", registry_auth));
+      struct curl_slist *slist = nullptr;
+      std::string auth_header = "X-Registry-Auth: " + std::string(registry_auth);
+      slist = curl_slist_append(slist, auth_header.c_str());
+      headers.reset(slist);
+      curl_easy_setopt(conn->get(), CURLOPT_HTTPHEADER, headers.get());
     }
-    auto raw_msg = req(conn.value().get(), POST, api_url, {}, headers);
-    if (raw_msg && raw_msg->first == 200) {
-      return true;
-    } else if (raw_msg) {
-      logs::log(logs::warning, "[DOCKER] error {} - {}", raw_msg->first, raw_msg->second);
+
+    CURLcode res = curl_easy_perform(conn->get());
+
+    if (res != CURLE_OK) {
+      return false;
+    }
+
+    long response_code = 0;
+    curl_easy_getinfo(conn->get(), CURLINFO_RESPONSE_CODE, &response_code);
+
+    if (state.error_msg.has_value()) {
+      logs::log(logs::warning, "[DOCKER] error {} - {}", response_code, state.error_msg.value());
       logs::log(logs::info,
                 "If it's an authentication error, you can try adding the env variable DOCKER_AUTH_B64, see: "
                 "https://docs.docker.com/engine/api/v1.30/#section/Authentication");
+      return false;
+    } else {
+      return response_code == 200;
     }
   }
 
   return false;
 }
-
 std::string
 DockerAPI::get_logs(std::string_view id, bool get_stdout, bool get_stderr, int since, int until, bool timestamps) {
   if (auto conn = docker_connect(socket_path)) {
