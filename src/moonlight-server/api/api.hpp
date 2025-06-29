@@ -231,6 +231,12 @@ private:
   void close(UnixSocket &socket);
 
   struct UnixSocketState {
+    UnixSocketState(boost::asio::io_context &io_context, immer::box<state::AppState> app_state, std::string socket_path)
+        : io_context(io_context), app_state(app_state),
+          acceptor(io_context, boost::asio::local::stream_protocol::endpoint(socket_path)),
+          http(HTTPServer<std::shared_ptr<UnixSocket>>{}),
+          sse_keepalive_timer(boost::asio::steady_timer{io_context}) {}
+
     boost::asio::io_context &io_context;
     immer::box<state::AppState> app_state;
     boost::asio::local::stream_protocol::acceptor acceptor;

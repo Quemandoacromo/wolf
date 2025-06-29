@@ -18,12 +18,7 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
                                    const std::string &socket_path,
                                    immer::box<state::AppState> app_state) {
 
-  state_ = std::make_shared<UnixSocketState>(
-      UnixSocketState{.io_context = io_context,
-                      .app_state = app_state,
-                      .acceptor = {io_context, boost::asio::local::stream_protocol::endpoint(socket_path)},
-                      .http = HTTPServer<std::shared_ptr<UnixSocket>>{},
-                      .sse_keepalive_timer = boost::asio::steady_timer{io_context}});
+  state_ = std::make_shared<UnixSocketState>(io_context, app_state, socket_path);
 
   state_->http.add(HTTPMethod::GET,
                    "/api/v1/events",
