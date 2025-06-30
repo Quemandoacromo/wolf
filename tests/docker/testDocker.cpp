@@ -55,6 +55,9 @@ TEST_CASE("Docker API", "[DOCKER]") {
 
   REQUIRE(!docker_api.remove_by_id(first_container->id)); // This container doesn't exist anymore
   REQUIRE(docker_api.remove_by_id(second_container->id));
+
+  REQUIRE(docker_api.inspect_image("hello-world").has_value());
+  REQUIRE(!docker_api.inspect_image("hello-world:non-existent-tag").has_value());
 }
 
 TEST_CASE("Docker TOML", "[DOCKER]") {

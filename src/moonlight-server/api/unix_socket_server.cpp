@@ -300,6 +300,23 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
                                "/api/v1/utils/get-icon?icon_path=/etc/wolf/icons/steam.png",
                     .handler = [this](auto req, auto socket) { endpoint_GetIcon(req, socket); }});
 
+  state_->http.add(
+      HTTPMethod::GET,
+      "/api/v1/docker/images/inspect",
+      {.summary = "Inspect a Docker image and returns the full JSON response as is from the Docker APIs at "
+                  "/images/{image_name}/json expects image_name as a query parameter.",
+       .handler = [this](auto req, auto socket) { endpoint_DockerInspectImage(req, socket); }});
+
+  state_->http.add(
+      HTTPMethod::POST,
+      "/api/v1/docker/images/pull",
+      {.summary = "Pull a Docker image, will keep the connection open to send back progress updates. Each "
+                  "progress event will be a single line encoded as JSON.",
+       .request_description = APIDescription{.json_schema = rfl::json::to_schema<DockerPullImageRequest>()},
+       .response_description = {{200, {.json_schema = rfl::json::to_schema<DockerPullImageResponse>()}},
+                                {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+       .handler = [this](auto req, auto socket) { endpoint_DockerPullImage(req, socket); }});
+
   /**
    * OpenAPI schema
    */
@@ -359,11 +376,18 @@ void UnixSocketServer::send_http(std::shared_ptr<UnixSocket> socket,
                                  const std::vector<std::string_view> &http_headers,
                                  std::string_view body) {
   auto http_reply = fmt::format("HTTP/1.0 {} OK\r\n{}\r\n\r\n{}", status_code, fmt::join(http_headers, "\r\n"), body);
+  send_data(socket, http_reply);
+}
+
+void UnixSocketServer::send_data(std::shared_ptr<UnixSocket> socket, std::string_view data, bool close_on_write) {
   boost::asio::async_write(socket->socket,
-                           boost::asio::buffer(http_reply),
-                           [this, socket](const boost::system::error_code &ec, std::size_t /*length*/) {
+                           boost::asio::buffer(data),
+                           [this, socket, close_on_write](const boost::system::error_code &ec, std::size_t /*length*/) {
                              if (ec) {
-                               logs::log(logs::error, "[API] Error sending HTTP: {}", ec.message());
+                               logs::log(logs::error, "[API] Error sending data: {}", ec.message());
+                               close(*socket);
+                             }
+                             if (close_on_write) {
                                close(*socket);
                              }
                            });

@@ -133,6 +133,12 @@ public:
   bool remove_by_name(std::string_view name, bool remove_volumes = false, bool force = false, bool link = false) const;
 
   /**
+   * Returns the full json response as is from /images/{image_name}/json
+   * Optional because the image might be missing locally
+   */
+  std::optional<std::string> inspect_image(std::string_view image_name) const;
+
+  /**
    * Downloads a Docker image
    */
   bool pull_image(std::string_view image_name, std::string_view registry_auth = {}) const;

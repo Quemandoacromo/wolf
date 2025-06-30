@@ -384,6 +384,24 @@ bool DockerAPI::pull_image(std::string_view image_name,
 
   return false;
 }
+
+/**
+ * Returns the full json response as is from /images/{image_name}/json
+ * Optional because the image might be missing locally
+ */
+std::optional<std::string> DockerAPI::inspect_image(std::string_view image_name) const {
+  if (auto conn = docker_connect(socket_path)) {
+    auto api_url = fmt::format("http://localhost/{}/images/{}/json", DOCKER_API_VERSION, image_name);
+    auto raw_msg = req(conn.value().get(), GET, api_url);
+    if (raw_msg && raw_msg->first == 200) {
+      return raw_msg->second;
+    } else if (raw_msg) {
+      logs::log(logs::debug, "[DOCKER] inspect_image returned {} - {}", raw_msg->first, raw_msg->second);
+    }
+  }
+  return std::nullopt;
+}
+
 std::string
 DockerAPI::get_logs(std::string_view id, bool get_stdout, bool get_stderr, int since, int until, bool timestamps) {
   if (auto conn = docker_connect(socket_path)) {

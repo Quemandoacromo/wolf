@@ -165,6 +165,14 @@ struct GetIconResponse {
   std::string icon_base64;
 };
 
+struct DockerPullImageRequest {
+  std::string image_name;
+};
+
+struct DockerPullImageResponse {
+  bool success = true;
+};
+
 struct UnixSocket {
   boost::asio::local::stream_protocol::socket socket;
   bool is_alive = true;
@@ -213,6 +221,8 @@ private:
 
   void endpoint_UpdateClientSettings(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void endpoint_GetIcon(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
+  void endpoint_DockerInspectImage(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
+  void endpoint_DockerPullImage(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
 
   void sse_broadcast(const std::string &payload);
   void sse_keepalive(const boost::system::error_code &e);
@@ -222,6 +232,7 @@ private:
                  int status_code,
                  const std::vector<std::string_view> &http_headers,
                  std::string_view body);
+  void send_data(std::shared_ptr<UnixSocket> socket, std::string_view data, bool close_on_write = true);
 
   void handle_request(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void start_connection(std::shared_ptr<UnixSocket> socket);
@@ -234,8 +245,7 @@ private:
     UnixSocketState(boost::asio::io_context &io_context, immer::box<state::AppState> app_state, std::string socket_path)
         : io_context(io_context), app_state(app_state),
           acceptor(io_context, boost::asio::local::stream_protocol::endpoint(socket_path)),
-          http(HTTPServer<std::shared_ptr<UnixSocket>>{}),
-          sse_keepalive_timer(boost::asio::steady_timer{io_context}) {}
+          http(HTTPServer<std::shared_ptr<UnixSocket>>{}), sse_keepalive_timer(boost::asio::steady_timer{io_context}) {}
 
     boost::asio::io_context &io_context;
     immer::box<state::AppState> app_state;
