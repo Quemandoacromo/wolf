@@ -14,7 +14,8 @@ void UnixSocketServer::endpoint_Events(const HTTPRequest &req, std::shared_ptr<U
   send_http(socket,
             200,
             {{"Content-Type: text/event-stream"}, {"Connection: keep-alive"}, {"Cache-Control: no-cache"}},
-            ""); // Inform clients this is going to be SSE
+            "", // Inform clients this is going to be SSE
+            false);
 }
 
 void UnixSocketServer::endpoint_PendingPairRequest(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {

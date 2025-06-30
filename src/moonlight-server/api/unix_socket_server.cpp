@@ -374,9 +374,10 @@ void UnixSocketServer::send_http(std::shared_ptr<UnixSocket> socket, int status_
 void UnixSocketServer::send_http(std::shared_ptr<UnixSocket> socket,
                                  int status_code,
                                  const std::vector<std::string_view> &http_headers,
-                                 std::string_view body) {
+                                 std::string_view body,
+                                 bool close_on_write) {
   auto http_reply = fmt::format("HTTP/1.0 {} OK\r\n{}\r\n\r\n{}", status_code, fmt::join(http_headers, "\r\n"), body);
-  send_data(socket, http_reply);
+  send_data(socket, http_reply, close_on_write);
 }
 
 void UnixSocketServer::send_data(std::shared_ptr<UnixSocket> socket, std::string_view data, bool close_on_write) {
