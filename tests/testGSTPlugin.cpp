@@ -152,7 +152,7 @@ TEST_CASE_METHOD(GStreamerTestsFixture, "RTP VIDEO Splits", "[GSTPlugin]") {
   REQUIRE(GST_OBJECT_REFCOUNT(rtpmoonlightpay) == 1);
   g_object_unref(rtpmoonlightpay);
   REQUIRE(get_buf_refcount(payload_buf) == 1);
-  g_object_unref(payload_buf);
+  gst_buffer_unref(payload_buf);
 }
 
 TEST_CASE_METHOD(GStreamerTestsFixture, "Create RTP VIDEO packets", "[GSTPlugin]") {
@@ -337,10 +337,10 @@ TEST_CASE_METHOD(GStreamerTestsFixture, "Create RTP VIDEO packets", "[GSTPlugin]
   REQUIRE(GST_OBJECT_REFCOUNT(rtpmoonlightpay) == 1);
   g_object_unref(rtpmoonlightpay);
   REQUIRE(get_buf_refcount(payload) == 1);
-  g_object_unref(payload);
-  g_object_unref(rtp_packets);
+  gst_buffer_unref(payload);
+  gst_buffer_list_unref(rtp_packets);
   REQUIRE(get_buf_refcount(video_payload) == 1);
-  g_object_unref(video_payload);
+  gst_buffer_unref(video_payload);
 }
 
 /*

@@ -398,8 +398,15 @@ Config load_or_default(const std::string &source,
 
 void pair(const Config &cfg, const PairedClient &client) {
   // Update CFG
-  cfg.paired_clients->update(
-      [&client](const PairedClientList &paired_clients) { return paired_clients.push_back(client); });
+  cfg.paired_clients->update([&client](const PairedClientList &paired_clients) {
+    // Removing the client if already present (see: https://github.com/games-on-whales/wolf/issues/211)
+    auto filtered_clients = paired_clients                                               //
+                            | ranges::views::filter([&client](auto paired_client) {      //
+                                return paired_client->client_cert != client.client_cert; //
+                              })                                                         //
+                            | ranges::to<PairedClientList>();                            //
+    return filtered_clients.push_back(client);
+  });
 
   // Update TOML
   auto tml = rfl::toml::load<WolfConfig, rfl::DefaultIfMissing>(cfg.config_source).value();

@@ -55,6 +55,8 @@ req(CURL *handle,
     headers = curl_slist_append(headers, "Content-type: application/json");
     curl_easy_setopt(handle, CURLOPT_POSTFIELDS, post_body.data());
     curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, post_body.size());
+  } else {
+    curl_easy_setopt(handle, CURLOPT_POST, 0L);
   }
   curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
 
@@ -78,7 +80,10 @@ req(CURL *handle,
   } else {
     long response_code;
     curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &response_code);
-    logs::log(logs::trace, "[CURL] Received {} - {}", response_code, read_buf);
+    // Avoid printing binary output if the target is "/api/v1/utils/get-icon"
+    if (target.find("/api/v1/utils/get-icon") == std::string::npos) {
+      logs::log(logs::trace, "[CURL] Received {} - {}", response_code, read_buf);
+    }
     return {{response_code, read_buf}};
   }
 }
@@ -150,9 +155,20 @@ TEST_CASE("Pair APIs", "[API]") {
   REQUIRE(response);
   REQUIRE_THAT(response->second, Equals("{\"success\":true}"));
   REQUIRE(pair_promise->get_future().get() == "1234");
+  REQUIRE(app_state->config.get().paired_clients->load().get().size() == 1);
+
+  { // Test out if pairing with the same client_id overrides the previous client
+    // https://github.com/games-on-whales/wolf/issues/211
+    auto cfg = app_state->config.get();
+    immer::box<state::PairedClient> previous_client = cfg.paired_clients->load().get()[0];
+    state::pair(
+        cfg,
+        state::PairedClient{.client_cert = previous_client->client_cert, .app_state_folder = "ASDF", .settings = {}});
+    REQUIRE(cfg.paired_clients->load().get().size() == 1);
+    REQUIRE(cfg.paired_clients->load().get()[0]->app_state_folder == "ASDF");
+  }
 
   { // Test out changing client settings
-    REQUIRE_THAT(app_state->config.get().paired_clients->load().get()[0]->app_state_folder, Equals("some/folder"));
     response = req(curl.get(),
                    HTTPMethod::POST,
                    "http://localhost/api/v1/clients/settings",
