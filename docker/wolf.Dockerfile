@@ -107,7 +107,6 @@ RUN mkdir -p $WOLF_CFG_FOLDER
 
 COPY --from=wolf-builder /wolf/wolf /wolf/wolf
 COPY --from=wolf-builder /wolf/fake-udev /wolf/fake-udev
-COPY --from=ghcr.io/games-on-whales/wolf-ui:alpha /usr/local/bin/wolf-ui /usr/local/bin/wolf-ui
 
 ENV XDG_RUNTIME_DIR=/tmp/sockets \
     GST_GL_API=gles2 \

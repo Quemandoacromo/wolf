@@ -374,21 +374,17 @@ void UnixSocketServer::send_http(std::shared_ptr<UnixSocket> socket, int status_
 void UnixSocketServer::send_http(std::shared_ptr<UnixSocket> socket,
                                  int status_code,
                                  const std::vector<std::string_view> &http_headers,
-                                 std::string_view body,
-                                 bool close_on_write) {
+                                 std::string_view body) {
   auto http_reply = fmt::format("HTTP/1.0 {} OK\r\n{}\r\n\r\n{}", status_code, fmt::join(http_headers, "\r\n"), body);
-  send_data(socket, http_reply, close_on_write);
+  send_data(socket, http_reply);
 }
 
-void UnixSocketServer::send_data(std::shared_ptr<UnixSocket> socket, std::string_view data, bool close_on_write) {
+void UnixSocketServer::send_data(std::shared_ptr<UnixSocket> socket, std::string_view data) {
   boost::asio::async_write(socket->socket,
                            boost::asio::buffer(data),
-                           [this, socket, close_on_write](const boost::system::error_code &ec, std::size_t /*length*/) {
+                           [this, socket](const boost::system::error_code &ec, std::size_t /*length*/) {
                              if (ec) {
                                logs::log(logs::error, "[API] Error sending data: {}", ec.message());
-                               close(*socket);
-                             }
-                             if (close_on_write) {
                                close(*socket);
                              }
                            });

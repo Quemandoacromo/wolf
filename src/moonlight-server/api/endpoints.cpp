@@ -14,8 +14,7 @@ void UnixSocketServer::endpoint_Events(const HTTPRequest &req, std::shared_ptr<U
   send_http(socket,
             200,
             {{"Content-Type: text/event-stream"}, {"Connection: keep-alive"}, {"Cache-Control: no-cache"}},
-            "", // Inform clients this is going to be SSE
-            false);
+            ""); // Inform clients this is going to be SS
 }
 
 void UnixSocketServer::endpoint_PendingPairRequest(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
@@ -589,17 +588,17 @@ void UnixSocketServer::endpoint_DockerPullImage(const HTTPRequest &req, std::sha
                                 {},
                                 [this, &first_send, socket](const docker::DockerAPI::DockerProgressEvent &progress_ev) {
                                   if (first_send) {
-                                    send_data(socket, "HTTP/1.0 200 OK\r\n\r\n", false);
+                                    send_data(socket, "HTTP/1.0 200 OK\r\n\r\n");
                                     first_send = false;
                                   }
                                   auto serialized_ev = rfl::json::write(progress_ev) + "\r\n";
-                                  send_data(socket, serialized_ev, false);
+                                  send_data(socket, serialized_ev);
                                 })) {
         if (first_send) {
-          send_data(socket, "HTTP/1.0 200 OK\r\n\r\n", false);
+          send_data(socket, "HTTP/1.0 200 OK\r\n\r\n");
         }
         auto final_result = rfl::json::write(GenericSuccessResponse{.success = true});
-        send_data(socket, final_result + "\r\n", true);
+        send_data(socket, final_result + "\r\n");
         broadcast_event("DockerPullImageEndEvent",
                         rfl::json::write(events::DockerPullImageEndEvent{.image_name = image, .success = true}));
       } else {

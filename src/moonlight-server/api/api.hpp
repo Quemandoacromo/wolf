@@ -231,9 +231,8 @@ private:
   void send_http(std::shared_ptr<UnixSocket> socket,
                  int status_code,
                  const std::vector<std::string_view> &http_headers,
-                 std::string_view body,
-                 bool close_on_write = true);
-  void send_data(std::shared_ptr<UnixSocket> socket, std::string_view data, bool close_on_write = true);
+                 std::string_view body);
+  void send_data(std::shared_ptr<UnixSocket> socket, std::string_view data);
 
   void handle_request(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket);
   void start_connection(std::shared_ptr<UnixSocket> socket);
