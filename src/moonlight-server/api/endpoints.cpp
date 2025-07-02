@@ -546,7 +546,7 @@ void UnixSocketServer::endpoint_GetIcon(const HTTPRequest &req, std::shared_ptr<
     return;
   }
   // TODO: implement coroutines for CURL
-  std::thread([this, socket, icon_path = icon_path[1]]() {
+  std::thread([this, socket, icon_path = utils::to_string(icon_path[1])]() {
     if (auto icon = utils::get_icon(icon_path)) {
       send_http(socket,
                 200,
