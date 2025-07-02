@@ -42,7 +42,7 @@ template <typename Socket> struct RequestHandler {
 
 template <typename T> class HTTPServer {
 public:
-  HTTPServer() : pool_(std::min(std::thread::hardware_concurrency(), 1u)) {};
+  HTTPServer() : pool_(std::max(std::thread::hardware_concurrency(), 2u)) {};
 
   ~HTTPServer() {
     pool_.join();
