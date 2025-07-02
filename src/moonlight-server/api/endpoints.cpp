@@ -545,17 +545,20 @@ void UnixSocketServer::endpoint_GetIcon(const HTTPRequest &req, std::shared_ptr<
     send_http(socket, 400, rfl::json::write(res));
     return;
   }
-
-  if (auto icon = utils::get_icon(icon_path[1])) {
-    send_http(socket,
-              200,
-              {"Content-Length: " + std::to_string(icon->size()), "Content-Type: image/png"},
-              icon.value());
-  } else {
-    auto res = GenericErrorResponse{.error = "Icon not found"};
-    send_http(socket, 404, rfl::json::write(res));
-  }
+  // TODO: implement coroutines for CURL
+  std::thread([this, socket, icon_path = icon_path[1]]() {
+    if (auto icon = utils::get_icon(icon_path)) {
+      send_http(socket,
+                200,
+                {"Content-Length: " + std::to_string(icon->size()), "Content-Type: image/png"},
+                icon.value());
+    } else {
+      auto res = GenericErrorResponse{.error = "Icon not found"};
+      send_http(socket, 404, rfl::json::write(res));
+    }
+  }).detach();
 }
+
 void UnixSocketServer::endpoint_DockerInspectImage(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto image_name = utils::split(req.query_string, '=');
   if (image_name.size() != 2 || image_name[0] != "image_name") {
@@ -576,27 +579,29 @@ void UnixSocketServer::endpoint_DockerInspectImage(const HTTPRequest &req, std::
 void UnixSocketServer::endpoint_DockerPullImage(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto input_payload = rfl::json::read<DockerPullImageRequest>(req.body);
   if (input_payload) {
-    docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
-    bool first_send = true;
-    if (docker_api.pull_image(input_payload.value().image_name,
-                              {},
-                              [this, &first_send, socket](const docker::DockerAPI::DockerProgressEvent &progress_ev) {
-                                if (first_send) {
-                                  send_data(socket, "HTTP/1.0 200 OK\r\n\r\n", false);
-                                  first_send = false;
-                                }
-                                auto serialized_ev = rfl::json::write(progress_ev) + "\r\n";
-                                send_data(socket, serialized_ev, false);
-                              })) {
-      if (first_send) {
-        send_data(socket, "HTTP/1.0 200 OK\r\n\r\n", false);
-        first_send = false;
+    // TODO: implement coroutines for CURL
+    std::thread([this, socket, image = input_payload.value().image_name]() {
+      docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
+      bool first_send = true;
+      if (docker_api.pull_image(image,
+                                {},
+                                [this, &first_send, socket](const docker::DockerAPI::DockerProgressEvent &progress_ev) {
+                                  if (first_send) {
+                                    send_data(socket, "HTTP/1.0 200 OK\r\n\r\n", false);
+                                    first_send = false;
+                                  }
+                                  auto serialized_ev = rfl::json::write(progress_ev) + "\r\n";
+                                  send_data(socket, serialized_ev, false);
+                                })) {
+        if (first_send) {
+          send_data(socket, "HTTP/1.0 200 OK\r\n\r\n", false);
+        }
+        auto final_result = rfl::json::write(GenericSuccessResponse{.success = true});
+        send_data(socket, final_result + "\r\n", true);
+      } else {
+        send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Failed to pull image"}));
       }
-      auto final_result = rfl::json::write(GenericSuccessResponse{.success = true});
-      send_data(socket, final_result + "\r\n", true);
-    } else {
-      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Failed to pull image"}));
-    }
+    }).detach();
   }
 }
 
