@@ -194,6 +194,15 @@ struct StopLobbyEvent {
   std::optional<std::vector<short>> pin = std::nullopt;
 };
 
+struct DockerPullImageStartEvent {
+  const std::string image_name;
+};
+
+struct DockerPullImageEndEvent {
+  const std::string image_name;
+  bool success;
+};
+
 using MouseTypes = std::variant<input::Mouse, virtual_display::WaylandMouse>;
 using KeyboardTypes = std::variant<input::Keyboard, virtual_display::WaylandKeyboard>;
 using TouchScreenTypes = std::variant<input::TouchScreen, virtual_display::WaylandTouchScreen>;

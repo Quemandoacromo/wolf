@@ -583,6 +583,8 @@ void UnixSocketServer::endpoint_DockerPullImage(const HTTPRequest &req, std::sha
     std::thread([this, socket, image = input_payload.value().image_name]() {
       docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
       bool first_send = true;
+      broadcast_event("DockerPullImageStartEvent",
+                      rfl::json::write(events::DockerPullImageStartEvent{.image_name = image}));
       if (docker_api.pull_image(image,
                                 {},
                                 [this, &first_send, socket](const docker::DockerAPI::DockerProgressEvent &progress_ev) {
@@ -598,8 +600,12 @@ void UnixSocketServer::endpoint_DockerPullImage(const HTTPRequest &req, std::sha
         }
         auto final_result = rfl::json::write(GenericSuccessResponse{.success = true});
         send_data(socket, final_result + "\r\n", true);
+        broadcast_event("DockerPullImageEndEvent",
+                        rfl::json::write(events::DockerPullImageEndEvent{.image_name = image, .success = true}));
       } else {
         send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Failed to pull image"}));
+        broadcast_event("DockerPullImageEndEvent",
+                        rfl::json::write(events::DockerPullImageEndEvent{.image_name = image, .success = false}));
       }
     }).detach();
   }
