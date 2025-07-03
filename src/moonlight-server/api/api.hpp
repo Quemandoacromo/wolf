@@ -122,6 +122,7 @@ struct StreamSessionHandleInputRequest {
 struct CreateLobbyRequest {
   rfl::Description<"The profile that originally created the lobby", std::string> profile_id;
   std::string name;
+  std::optional<std::string> icon_png_path;
   bool multi_user = true;
   rfl::Description<"If present, the pin that is required to join the lobby."
                    "If this is not set, then the lobby is open to everyone",

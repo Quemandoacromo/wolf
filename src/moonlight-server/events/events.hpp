@@ -99,6 +99,7 @@ struct Lobby {
   const std::string id;
   const std::string name;
   const std::string started_by_profile_id;
+  const std::string icon_png_path;
   const bool multi_user;
   /**
    * The pin that is required to join and control the lobby
@@ -153,6 +154,7 @@ struct CreateLobbyEvent {
   const std::string id;
   std::string profile_id;
   const std::string name;
+  const std::optional<std::string> icon_png_path;
   std::optional<std::vector<short>> pin = std::nullopt;
   const bool multi_user;
   const bool stop_when_everyone_leaves;

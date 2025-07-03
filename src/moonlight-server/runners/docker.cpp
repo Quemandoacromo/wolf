@@ -129,6 +129,22 @@ void RunDocker::run(std::string_view session_id,
     }
   }
 
+  { // Setup Wolf socket path (if the runner needs it)
+    auto socket_path = get_env("WOLF_SOCKET_PATH");
+    auto socket_path_container_env = std::find_if(full_env.begin(), full_env.end(), [](const std::string &env) {
+      return env.find("WOLF_SOCKET_PATH") != std::string::npos;
+    });
+    if (socket_path && socket_path_container_env != full_env.end()) {
+      // Change the associated mount point to pick up the right path from the host
+      for (auto &mount : mounts) {
+        if (mount.destination.find("wolf.sock") != std::string::npos) {
+          mount.source = socket_path;
+          break;
+        }
+      }
+    }
+  }
+
   // when creating a virtual DualSense device we need to also mount a `/dev/hidraw*` device.
   // unfortunately hidraw devices use dynamically assigned major numbers rather than static ones
   // so we'll get the major number from reading `/proc/devices` for `hidraw` and `input`

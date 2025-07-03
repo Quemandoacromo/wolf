@@ -101,9 +101,7 @@ COPY --from=wolf-builder /usr/local/lib/liblibgstwaylanddisplay* /usr/local/lib/
 
 WORKDIR /wolf
 
-ARG WOLF_CFG_FOLDER=/etc/wolf/cfg
-ENV WOLF_CFG_FOLDER=$WOLF_CFG_FOLDER
-RUN mkdir -p $WOLF_CFG_FOLDER
+ENV WOLF_CFG_FOLDER=/etc/wolf/cfg
 
 COPY --from=wolf-builder /wolf/wolf /wolf/wolf
 COPY --from=wolf-builder /wolf/fake-udev /wolf/fake-udev
@@ -120,6 +118,7 @@ ENV XDG_RUNTIME_DIR=/tmp/sockets \
     WOLF_RENDER_NODE=/dev/dri/renderD128 \
     WOLF_STOP_CONTAINER_ON_EXIT=TRUE \
     WOLF_DOCKER_SOCKET=/var/run/docker.sock \
+    WOLF_SOCKET_PATH=$WOLF_CFG_FOLDER/wolf.sock \
     RUST_BACKTRACE=full \
     RUST_LOG=WARN \
     HOST_APPS_STATE_FOLDER=/etc/wolf \

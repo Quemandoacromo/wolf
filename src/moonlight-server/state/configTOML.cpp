@@ -206,39 +206,10 @@ Config load_or_default(const std::string &source,
     v5.insert_or_assign("uuid", v4.at("uuid"));
     v5.insert_or_assign("paired_clients", v4.at("paired_clients"));
     // Insert old `apps` into the new `profiles` for the default profile (`user`)
-    const auto default_moonlight_apps = R""""(
-    id = "moonlight-profile-id"
-
-    [[apps]]
-    title = "Wolf UI"
-
-    [apps.runner]
-    type = "process"
-    run_cmd = "/usr/local/bin/wolf-ui"
-
-    [[apps]]
-    title = "Test ball"
-    start_virtual_compositor = false
-    start_audio_server = false
-
-    [apps.runner]
-    type = "process"
-    run_cmd = "sh -c \"while :; do echo 'running...'; sleep 10; done\""
-
-    [apps.video]
-    source = """
-    videotestsrc pattern=ball flip=true is-live=true !
-    video/x-raw, framerate={fps}/1, width={width}, height={height}
-    \
-    """
-
-    [apps.audio]
-    source = "audiotestsrc wave=ticks is-live=true"
-    )"""";
-
-    v5.insert_or_assign("profiles",
-                        toml::array{toml::parse(default_moonlight_apps),
-                                    toml::table({{"id", "user"}, {"name", "User"}, {"apps", v4.at("apps")}})});
+    auto moonlight_profile = v5["profiles"].as_array()->at(0).as_table();
+    v5.insert_or_assign(
+        "profiles",
+        toml::array{*moonlight_profile, toml::table({{"id", "user"}, {"name", "User"}, {"apps", v4.at("apps")}})});
     std::ofstream out_file;
     out_file.open(source);
     if (!out_file.is_open()) {

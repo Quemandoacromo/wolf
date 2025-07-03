@@ -175,6 +175,7 @@ template <> struct Reflector<events::Lobby> {
   struct ReflType {
     std::string id;
     std::string name;
+    std::optional<std::string> icon_png_path;
     bool multi_user;
     std::string started_by_profile_id;
     bool pin_required;
@@ -187,6 +188,7 @@ template <> struct Reflector<events::Lobby> {
     immer::vector<immer::box<std::string>> connected_sessions = v.connected_sessions->load();
     return {.id = v.id,
             .name = v.name,
+            .icon_png_path = v.icon_png_path,
             .multi_user = v.multi_user,
             .started_by_profile_id = v.started_by_profile_id,
             .pin_required = v.pin.has_value(),

@@ -6,6 +6,11 @@ set -e
 # See https://github.com/games-on-whales/wolf/pull/65#discussion_r1509235307
 # and https://github.com/games-on-whales/wolf/issues/64#issuecomment-1951479056
 mkdir -p $WOLF_CFG_FOLDER
+# Adjust env variables if the user moved the folder
+export WOLF_SOCKET_PATH=$WOLF_CFG_FOLDER/wolf.sock
+export WOLF_CFG_FILE=$WOLF_CFG_FOLDER/config.toml
+export WOLF_PRIVATE_KEY_FILE=$WOLF_CFG_FOLDER/key.pem
+export WOLF_PRIVATE_CERT_FILE=$WOLF_CFG_FOLDER/cert.pem
 
 # Set default values for environment variables
 export WOLF_RENDER_NODE=${WOLF_RENDER_NODE:-/dev/dri/renderD128}
