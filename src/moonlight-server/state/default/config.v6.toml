@@ -131,8 +131,7 @@ start_virtual_compositor = true
 [profiles.apps.runner]
 type = "docker"
 name = "WolfSteam"
-# image = "ghcr.io/games-on-whales/steam:edge"
-image = "gow/steam"
+image = "ghcr.io/games-on-whales/steam:edge"
 mounts = []
 env = [
     "PROTON_LOG=1",
