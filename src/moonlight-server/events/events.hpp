@@ -99,7 +99,7 @@ struct Lobby {
   const std::string id;
   const std::string name;
   const std::string started_by_profile_id;
-  const std::string icon_png_path;
+  std::optional<std::string> icon_png_path;
   const bool multi_user;
   /**
    * The pin that is required to join and control the lobby
