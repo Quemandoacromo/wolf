@@ -276,33 +276,6 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
         });
       }));
 
-  // When a Moonlight session is being stopped we need to remove it from the lobby
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::StopStreamEvent>>(
-      [=](const immer::box<events::StopStreamEvent> &stop_stream_event) {
-        immer::vector<events::Lobby> lobbies = app_state->lobbies->load();
-        auto session_id_str = std::to_string(stop_stream_event->session_id);
-        if (auto lobby = state::get_lobby_by_connected_session(lobbies, session_id_str)) {
-          logs::log(logs::info, "[LOBBY] removing session {} from lobby {}", stop_stream_event->session_id, lobby->id);
-          // Remove the current session from the lobby list
-          lobby->connected_sessions->update(
-              [session_id_str, stop_stream_event](const immer::vector<immer::box<std::string>> &connected_sessions) {
-                return connected_sessions | //
-                       ranges::views::filter(
-                           [session_id_str, stop_stream_event](const immer::box<std::string> &session_id) {
-                             return *session_id != session_id_str;
-                           }) | //
-                       ranges::to<immer::vector<immer::box<std::string>>>();
-              });
-
-          if (lobby->stop_when_everyone_leaves && lobby->connected_sessions->load()->size() == 0) {
-            logs::log(logs::debug, "[LOBBY] lobby {} has no more sessions, stopping", lobby->id);
-            // Nobody left in the lobby, and it's set to stop when everyone leaves
-            app_state->event_bus->fire_event(
-                immer::box<events::StopLobbyEvent>{events::StopLobbyEvent{.lobby_id = lobby->id}});
-          }
-        }
-      }));
-
   // On a PlugDeviceEvent, we have to add the device to the lobby queue so that the runner will pick it up
   handlers.push_back(app_state->event_bus->register_handler<immer::box<events::PlugDeviceEvent>>(
       [=](const immer::box<events::PlugDeviceEvent> &plug_device_event) {
@@ -335,22 +308,26 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
         }
       }));
 
-  // When a Moonlight client Pauses a session, we remove the client from the lobby.
-  // When it reconnects, it should be back into wolf-ui
+  auto on_moonlight_session_over = [app_state](std::size_t moonlight_session_id) {
+    immer::vector<events::Lobby> lobbies = app_state->lobbies->load();
+    if (auto lobby = state::get_lobby_by_connected_session(lobbies, std::to_string(moonlight_session_id))) {
+      logs::log(logs::info, "[LOBBY] Moonlight stream {} over, leaving lobby {}", moonlight_session_id, lobby->id);
+      // Fire the LeaveLobbyEvent so that it can also be picked up by WolfUI via SSE
+      app_state->event_bus->fire_event(immer::box<events::LeaveLobbyEvent>{
+          events::LeaveLobbyEvent{.lobby_id = lobby->id, .moonlight_session_id = moonlight_session_id}});
+    }
+  };
+
+  // When a Moonlight client Pauses a session, we get the user out of a lobby
   handlers.push_back(app_state->event_bus->register_handler<immer::box<events::PauseStreamEvent>>(
       [=](const immer::box<events::PauseStreamEvent> &pause_stream_event) {
-        immer::vector<events::Lobby> lobbies = app_state->lobbies->load();
-        if (auto lobby =
-                state::get_lobby_by_connected_session(lobbies, std::to_string(pause_stream_event->session_id))) {
-          logs::log(logs::info,
-                    "[LOBBY] Moonlight stream {} paused, leaving lobby {}",
-                    pause_stream_event->session_id,
-                    lobby->id);
-          auto sessions = app_state->running_sessions->load();
-          if (auto session = state::get_session_by_id(sessions.get(), pause_stream_event->session_id)) {
-            leave_lobby(app_state->event_bus, lobby.value(), session.value());
-          }
-        }
+        on_moonlight_session_over(pause_stream_event->session_id);
+      }));
+
+  // When a Moonlight client Stops a session, we get the user out of a lobby
+  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::StopStreamEvent>>(
+      [=](const immer::box<events::StopStreamEvent> &stop_stream_event) {
+        on_moonlight_session_over(stop_stream_event->session_id);
       }));
 
   return handlers.persistent();
