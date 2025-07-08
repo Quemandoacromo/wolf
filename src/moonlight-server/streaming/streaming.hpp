@@ -60,7 +60,7 @@ void start_streaming_audio(immer::box<events::AudioSession> audio_session,
 static bool run_pipeline(
     const std::string &pipeline_desc,
     const std::function<immer::array<immer::box<events::EventBusHandlers>>(
-        gstreamer::gst_element_ptr /* pipeline */, gstreamer::gst_main_loop_ptr /* main_loop */)> &on_pipeline_ready) {
+        gstreamer::gst_element_ptr /* pipeline */)> &on_pipeline_ready) {
   GError *error = nullptr;
   gstreamer::gst_element_ptr pipeline(gst_parse_launch(pipeline_desc.c_str(), &error), [](const auto &pipeline) {
     logs::log(logs::trace, "~pipeline");
@@ -82,7 +82,7 @@ static bool run_pipeline(
   gstreamer::gst_main_loop_ptr loop(g_main_loop_new(context.get(), FALSE), ::g_main_loop_unref);
 
   /* Let the calling thread set extra things */
-  auto handlers = on_pipeline_ready(pipeline, loop);
+  auto handlers = on_pipeline_ready(pipeline);
 
   /*
    * adds a watch for new message on our pipeline's message bus to

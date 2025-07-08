@@ -332,7 +332,7 @@ appsink sync=false name=wolf_udp_sink
 [gstreamer.video.defaults.nvcodec]
 video_params = """
 cudaupload !
-cudaconvertscale !
+cudaconvertscale add-borders=true !
 video/x-raw(memory:CUDAMemory), width={width}, height={height}, \
 chroma-site={color_range}, format=NV12, colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
@@ -340,8 +340,7 @@ chroma-site={color_range}, format=NV12, colorimetry={color_space}, pixel-aspect-
 video_params_zero_copy = """
 glupload !
 glcolorconvert !
-video/x-raw(memory:GLMemory),format=NV12, width={width}, height={height}, chroma-site={color_range}, \
-colorimetry={color_space}, pixel-aspect-ratio=1/1\
+video/x-raw(memory:GLMemory),format=NV12, width={width}, height={height}, pixel-aspect-ratio=1/1\
 """
 
 [gstreamer.video.defaults.qsv]
@@ -352,20 +351,20 @@ colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
 
 video_params_zero_copy = """
-vapostproc !
+vapostproc add-borders=true !
 video/x-raw(memory:VAMemory),format=NV12, chroma-site={color_range},
 colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
 
 [gstreamer.video.defaults.va]
 video_params = """
-vapostproc !
+vapostproc add-borders=true !
 video/x-raw, chroma-site={color_range}, width={width}, height={height}, format=NV12,
 colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
 
 video_params_zero_copy = """
-vapostproc !
+vapostproc add-borders=true !
 video/x-raw(memory:VAMemory), format=NV12, chroma-site={color_range}, width={width}, height={height},
 colorimetry={color_space}, pixel-aspect-ratio=1/1\
 """
