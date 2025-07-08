@@ -59,8 +59,8 @@ void start_streaming_audio(immer::box<events::AudioSession> audio_session,
 
 static bool run_pipeline(
     const std::string &pipeline_desc,
-    const std::function<immer::array<immer::box<events::EventBusHandlers>>(
-        gstreamer::gst_element_ptr /* pipeline */)> &on_pipeline_ready) {
+    const std::function<immer::array<immer::box<events::EventBusHandlers>>(gstreamer::gst_element_ptr /* pipeline */)>
+        &on_pipeline_ready) {
   GError *error = nullptr;
   gstreamer::gst_element_ptr pipeline(gst_parse_launch(pipeline_desc.c_str(), &error), [](const auto &pipeline) {
     logs::log(logs::trace, "~pipeline");
