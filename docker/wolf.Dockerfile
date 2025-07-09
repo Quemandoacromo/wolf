@@ -108,6 +108,7 @@ COPY --from=wolf-builder /wolf/fake-udev /wolf/fake-udev
 
 ENV XDG_RUNTIME_DIR=/tmp/sockets \
     GST_GL_API=gles2 \
+    GST_GL_PLATFORM=egl \
     GST_GL_WINDOW=surfaceless \
     WOLF_USE_ZERO_COPY=TRUE \
     WOLF_LOG_LEVEL=INFO \

@@ -1,3 +1,5 @@
+#include "platforms/hw.hpp"
+
 #include <control/control.hpp>
 #include <gstreamer-1.0/gst/app/gstappsink.h>
 #include <gstreamer-1.0/gst/app/gstappsrc.h>
@@ -65,16 +67,26 @@ void start_video_producer(const std::string &session_id,
                           const wolf::core::virtual_display::DisplayMode &display_mode,
                           std::shared_ptr<boost::promise<WaylandDisplayReady>> on_ready,
                           std::shared_ptr<events::EventBusType> event_bus) {
-  auto pipeline = fmt::format("waylanddisplaysrc name=wolf_wayland_source "
-                              "render_node={render_node} ! "
-                              "{buffer_format}, width={width}, height={height}, framerate={fps}/1 ! \n"    //
+  auto pipeline_fix = "";
+  if (get_vendor(render_node) == NVIDIA && buffer_format != "video/x-raw") {
+    // We keep the OpenGL elements of the pipeline on the producer side so that:
+    //  1- The caps exchange happens early on and waylanddisplaysrc will settle on the right format
+    //  2- The OpenGL context doesn't get created multiple times downstream (and doesn't cause issues when it's
+    //  destroyed)
+    pipeline_fix = "glupload ! glcolorconvert ! video/x-raw(memory:GLMemory),format=NV12 ! ";
+  }
+
+  auto pipeline = fmt::format("waylanddisplaysrc name=wolf_wayland_source render_node={render_node} ! "
+                              "{buffer_format}, width={width}, height={height}, framerate={fps}/1 ! \n" //
+                              "{pipeline_fix}"
                               "interpipesink sync=true async=false name={session_id}_video max-buffers=1", //
                               fmt::arg("buffer_format", buffer_format),
                               fmt::arg("render_node", render_node),
                               fmt::arg("session_id", session_id),
                               fmt::arg("width", display_mode.width),
                               fmt::arg("height", display_mode.height),
-                              fmt::arg("fps", display_mode.refreshRate));
+                              fmt::arg("fps", display_mode.refreshRate),
+                              fmt::arg("pipeline_fix", pipeline_fix));
   logs::log(logs::debug, "[GSTREAMER] Starting video producer: {}", pipeline);
   auto bus_data_ptr =
       std::make_shared<GstBusData>(GstBusData{.on_ready = std::move(on_ready), .wayland_plugin = nullptr});
