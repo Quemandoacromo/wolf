@@ -80,11 +80,33 @@ static bool is_available(const GPU_VENDOR &gpu_vendor, const GstEncoder &setting
   return false;
 }
 
-std::optional<GstEncoder>
-get_encoder(std::string_view tech, const std::vector<GstEncoder> &encoders, const GPU_VENDOR &vendor) {
+std::optional<GstEncoder> get_encoder(std::string_view tech,
+                                      std::string_view encoder_node,
+                                      const std::vector<GstEncoder> &encoders,
+                                      const GPU_VENDOR &vendor) {
   auto default_is_available = std::bind(is_available, vendor, std::placeholders::_1);
   auto encoder = std::find_if(encoders.begin(), encoders.end(), default_is_available);
   if (encoder != std::end(encoders)) {
+    auto encoder_node_name = get_render_node_name(encoder_node);
+    if (encoder_type(*encoder) == VAAPI && encoder_node_name != "renderD128") {
+      auto possible_vaapi_plugin = fmt::format("va{}{}enc", encoder_node_name, tech);
+      auto possible_encoder = GstEncoder{.plugin_name = encoder->plugin_name,
+                                         .check_elements = {possible_vaapi_plugin, "vapostproc"},
+                                         .video_params = encoder->video_params,
+                                         .video_params_zero_copy = encoder->video_params_zero_copy,
+                                         .encoder_pipeline = encoder->encoder_pipeline};
+      logs::log(logs::debug, "Checking if {} is available", possible_vaapi_plugin);
+      if (is_available(vendor, possible_encoder)) {
+        possible_encoder.encoder_pipeline = std::regex_replace(possible_encoder.encoder_pipeline,
+                                                               std::regex(fmt::format("va{}enc", tech)),
+                                                               possible_vaapi_plugin);
+        logs::log(logs::info, "Detected multiple VAAPI capable devices, using {} encoder", possible_vaapi_plugin);
+        return possible_encoder;
+      }
+    }
+    if (encoder_type(*encoder) == NVIDIA && encoder_node_name != "renderD128") {
+      // TODO: do the same trick for Nvidia and nvh265device{dev-number}enc we have to get that dev-number though..
+    }
     logs::log(logs::info, "Using {} encoder: {}", tech, encoder->plugin_name);
     if (encoder_type(*encoder) == SOFTWARE) {
       logs::log(logs::warning, "Software {} encoder detected", tech);
@@ -248,14 +270,14 @@ Config load_or_default(const std::string &source,
   }
 
   /* Automatically pick the best encoders */
-  auto h264_encoder = get_encoder("H264", default_gst_video_settings.h264_encoders, vendor);
+  auto h264_encoder = get_encoder("h264", default_gst_render_node, default_gst_video_settings.h264_encoders, vendor);
   if (!h264_encoder) {
     throw std::runtime_error(
         "Unable to find a compatible H.264 encoder, please check [[gstreamer.video.h264_encoders]] "
         "in your config.toml or your Gstreamer installation");
   }
-  auto hevc_encoder = get_encoder("HEVC", default_gst_video_settings.hevc_encoders, vendor);
-  auto av1_encoder = get_encoder("AV1", default_gst_video_settings.av1_encoders, vendor);
+  auto hevc_encoder = get_encoder("h265", default_gst_render_node, default_gst_video_settings.hevc_encoders, vendor);
+  auto av1_encoder = get_encoder("av1", default_gst_render_node, default_gst_video_settings.av1_encoders, vendor);
 
   /* Get paired clients */
   auto paired_clients =

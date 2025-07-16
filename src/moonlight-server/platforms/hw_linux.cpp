@@ -192,6 +192,17 @@ std::string get_vendor_name(GPU_VENDOR vendor) {
   }
 }
 
+std::string get_render_node_name(std::string_view render_node) {
+  char resolved_path[PATH_MAX];
+  if (realpath(render_node.data(), resolved_path) == nullptr) {
+    return ""; // Error resolving path
+  }
+
+  std::string path_copy(resolved_path);
+  char *base = basename(&path_copy[0]); // Get mutable data from string
+  return std::string(base);
+}
+
 std::string get_ip_address(ifaddrs *ifa) {
   if (ifa->ifa_addr->sa_family == AF_INET) { // IP4
     auto tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;

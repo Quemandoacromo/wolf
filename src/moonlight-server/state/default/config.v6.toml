@@ -351,7 +351,7 @@ colorimetry={color_space}, pixel-aspect-ratio=1/1\
 
 video_params_zero_copy = """
 vapostproc add-borders=true !
-video/x-raw(memory:VAMemory),format=NV12, pixel-aspect-ratio=1/1\
+video/x-raw(memory:VAMemory), format=NV12, width={width}, height={height}, pixel-aspect-ratio=1/1\
 """
 
 [gstreamer.video.defaults.va]
