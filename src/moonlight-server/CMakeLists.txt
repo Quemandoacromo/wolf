@@ -29,7 +29,7 @@ target_link_libraries_system(wolf_runner PUBLIC dp::eventbus)
 FetchContent_Declare(
         tomlplusplus
         GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
-        GIT_TAG        v3.4.0
+        GIT_TAG v3.4.0
         OVERRIDE_FIND_PACKAGE
 )
 FetchContent_MakeAvailable(tomlplusplus)
@@ -96,9 +96,9 @@ endif ()
 set(ZSTD_BUILD_SHARED ${BUILD_SHARED_LIBS})
 set(ZSTD_BUILD_STATIC OFF)
 
-if(NOT BUILD_SHARED_LIBS)
+if (NOT BUILD_SHARED_LIBS)
     set(ZSTD_BUILD_STATIC ON)
-endif()
+endif ()
 FetchContent_MakeAvailable(cpptrace)
 
 ##############################
@@ -131,7 +131,8 @@ file(GLOB SRC_LIST SRCS
         rtsp/*.cpp
         runners/*.cpp
         state/*.cpp
-        streaming/*.cpp)
+        streaming/*.cpp
+        introspect/*.cpp)
 
 if (UNIX AND NOT APPLE)
     message(STATUS "Adding input implementation for LINUX")

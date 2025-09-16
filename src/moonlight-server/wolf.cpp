@@ -10,6 +10,7 @@
 #include <immer/array_transient.hpp>
 #include <immer/map_transient.hpp>
 #include <immer/vector_transient.hpp>
+#include <introspect/introspect.hpp>
 #include <mdns_cpp/logger.hpp>
 #include <mdns_cpp/mdns.hpp>
 #include <memory>
@@ -60,12 +61,26 @@ state::Host get_host_config(std::string_view pkey_filename, std::string_view cer
     mac_address = override_mac;
   }
 
+  std::string local_base_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
+  std::string host_base_state_folder = local_base_state_folder;
+
+  docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
+  if (auto container = introspect::get_current_container(docker_api)) {
+    host_base_state_folder =
+        introspect::get_host_path_for(*container, local_base_state_folder).value_or(local_base_state_folder);
+  } else {
+    logs::log(logs::warning,
+              "Unable to get the container that is running Wolf, automatic mounts matching is disabled.");
+  }
+
   return {state::DISPLAY_CONFIGURATIONS,
           state::AUDIO_CONFIGURATIONS,
           server_cert,
           server_pkey,
           internal_ip,
-          mac_address};
+          mac_address,
+          host_base_state_folder,
+          local_base_state_folder};
 }
 
 /**
@@ -333,7 +348,7 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
           }
 
           /* Adding custom state folder */
-          mounted_paths.push_back({session->app_state_folder, "/home/retro"});
+          mounted_paths.push_back({session->app_host_state_folder, "/home/retro"});
 
           /* GPU specific adjustments */
           auto render_node = session->app->render_node;
@@ -360,7 +375,7 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
           } else {
             /* Finally run the app, this will stop here until over */
             run_session->runner->run(session->session_id,
-                                     session->app_state_folder,
+                                     session->app_local_state_folder,
                                      *devices_q,
                                      all_devices.persistent(),
                                      mounted_paths.persistent(),
