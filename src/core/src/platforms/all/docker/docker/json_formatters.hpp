@@ -38,12 +38,11 @@ void tag_invoke(value_from_tag, value &jv, const docker::MountPoint &mount) {
 }
 
 docker::MountPoint tag_invoke(value_to_tag<docker::MountPoint>, value const &jv) {
-  // ex: /home/ale/repos/gow/local_state:/home/retro:rw
-  auto bind = utils::split(std::string_view{jv.as_string().data(), jv.as_string().size()}, ':');
+  object const &obj = jv.as_object();
   return docker::MountPoint{
-      .source = utils::to_string(bind[0]),
-      .destination = utils::to_string(bind[1]),
-      .mode = utils::to_string(bind.size() == 3 ? bind[2] : "rw"),
+      .source = json::value_to<std::string>(obj.at("Source")),
+      .destination = json::value_to<std::string>(obj.at("Destination")),
+      .mode = json::value_to<std::string>(obj.at("Mode")),
   };
 }
 
@@ -114,8 +113,8 @@ docker::Container tag_invoke(value_to_tag<docker::Container>, value const &jv) {
   }
 
   std::vector<docker::MountPoint> mounts;
-  if (!host_config.at("Binds").is_null()) { // This can be `null` in the APIs for some reason
-    mounts = json::value_to<std::vector<docker::MountPoint>>(host_config.at("Binds"));
+  if (!obj.at("Mounts").is_null()) { // This can be `null` in the APIs for some reason
+    mounts = json::value_to<std::vector<docker::MountPoint>>(obj.at("Mounts"));
   }
 
   std::vector<docker::Device> devices;

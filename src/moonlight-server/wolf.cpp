@@ -63,11 +63,14 @@ state::Host get_host_config(std::string_view pkey_filename, std::string_view cer
 
   std::string local_base_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
   std::string host_base_state_folder = local_base_state_folder;
+  std::string host_xdg_runtime_dir = utils::get_env("XDG_RUNTIME_DIR", "/tmp/sockets");
 
   docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
   if (auto container = introspect::get_current_container(docker_api)) {
     host_base_state_folder =
         introspect::get_host_path_for(*container, local_base_state_folder).value_or(local_base_state_folder);
+    host_xdg_runtime_dir =
+        introspect::get_host_path_for(*container, host_xdg_runtime_dir).value_or(host_xdg_runtime_dir);
   } else {
     logs::log(logs::warning,
               "Unable to get the container that is running Wolf, automatic mounts matching is disabled.");
@@ -80,7 +83,8 @@ state::Host get_host_config(std::string_view pkey_filename, std::string_view cer
           internal_ip,
           mac_address,
           host_base_state_folder,
-          local_base_state_folder};
+          local_base_state_folder,
+          host_xdg_runtime_dir};
 }
 
 /**
@@ -112,7 +116,7 @@ struct AudioServer {
  * if that fails, we run our own PulseAudio container and connect to it
  * if that fails, we can't return an AudioServer, hence the optional!
  */
-std::optional<AudioServer> setup_audio_server(const std::string &runtime_dir) {
+std::optional<AudioServer> setup_audio_server(const std::string &host_runtime_dir, const std::string &runtime_dir) {
   auto audio_server = audio::connect();
   if (audio::connected(audio_server)) {
     return {{.server = audio_server}};
@@ -132,7 +136,7 @@ std::optional<AudioServer> setup_audio_server(const std::string &runtime_dir) {
             .image = utils::get_env("WOLF_PULSE_IMAGE", "ghcr.io/games-on-whales/pulseaudio:master"),
             .status = docker::CREATED,
             .ports = {},
-            .mounts = {docker::MountPoint{.source = runtime_dir, .destination = "/tmp/pulse/", .mode = "rw"}},
+            .mounts = {docker::MountPoint{.source = host_runtime_dir, .destination = "/tmp/pulse/", .mode = "rw"}},
             .env = {"XDG_RUNTIME_DIR=/tmp/pulse/", "UNAME=retro", "UID=1000", "GID=1000"}},
         // The following is needed when using podman (or any container that uses SELINUX). This way we can access the
         // socket that is created by PulseAudio from other containers (including this one).
@@ -331,10 +335,15 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
 
           auto pulse_sink_name = fmt::format("virtual_sink_{}", session->session_id);
           auto audio_server_name = audio_server ? audio::get_server_name(audio_server->server) : "";
+          // TODO: properly separate XDG_RUNTIME_DIR from <pulse socket path>
+          // for example on my dev machine it's ${XDG_RUNTIME_DIR}/pulse/native
+          // but we know that on our images it's ${XDG_RUNTIME_DIR}/pulse-socket so this should be fine..
+          auto audio_server_on_host = std::filesystem::path(app_state->host->host_xdg_runtime_dir) /
+                                      std::filesystem::path(audio_server_name).filename();
           full_env.set("PULSE_SINK", pulse_sink_name);
           full_env.set("PULSE_SOURCE", pulse_sink_name + ".monitor");
           full_env.set("PULSE_SERVER", audio_server_name);
-          mounted_paths.push_back({audio_server_name, audio_server_name});
+          mounted_paths.push_back({audio_server_on_host, audio_server_name});
 
           full_env.set("GAMESCOPE_WIDTH", std::to_string(session->display_mode.width));
           full_env.set("GAMESCOPE_HEIGHT", std::to_string(session->display_mode.height));
@@ -342,8 +351,9 @@ auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
 
           if (auto w_display = run_session->stream_session->wayland_display.get()) {
             auto socket_name = virtual_display::get_wayland_socket_name(*w_display->load().get());
-            auto wayland_socket = std::filesystem::path(runtime_dir) / socket_name;
-            mounted_paths.push_back({wayland_socket, wayland_socket});
+            auto local_wayland_socket = std::filesystem::path(runtime_dir) / socket_name;
+            auto host_wayland_socket = std::filesystem::path(app_state->host->host_xdg_runtime_dir) / socket_name;
+            mounted_paths.push_back({host_wayland_socket, local_wayland_socket});
             full_env.set("WAYLAND_DISPLAY", socket_name);
           }
 
@@ -502,7 +512,7 @@ void run() {
     }
   }).detach();
 
-  auto audio_server = setup_audio_server(runtime_dir);
+  auto audio_server = setup_audio_server(local_state->host->host_xdg_runtime_dir, runtime_dir);
   auto sess_handlers = setup_sessions_handlers(local_state, runtime_dir, audio_server);
 
   http_thread.join(); // Let's park the main thread over here

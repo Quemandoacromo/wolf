@@ -111,6 +111,11 @@ struct Host {
    * The path in the current Wolf context (probably a container) where we are allowed to store data
    */
   std::string local_base_state_folder;
+
+  /**
+   * The path (or usually the Docker volume) on the host where we'll put the audio/video sockets
+   */
+  std::string host_xdg_runtime_dir;
 };
 
 enum class PAIR_PHASE {
