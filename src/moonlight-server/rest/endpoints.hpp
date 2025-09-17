@@ -411,8 +411,7 @@ void appasset(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>
       response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
     }
   } else { // Assume it's a relative path (legacy setting)
-    std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
-    auto asset_path = std::filesystem::path(host_state_folder) / icon_path;
+    auto asset_path = std::filesystem::path(state->host->local_base_state_folder) / icon_path;
     if (auto file_content = get_file_content(asset_path)) {
       response->write(SimpleWeb::StatusCode::success_ok, file_content.value(), asset_headers);
     } else {

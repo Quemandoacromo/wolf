@@ -359,7 +359,7 @@ TEST_CASE("Parse nulls in json reply", "[DOCKER]") {
   REQUIRE(parsed_container.mounts.size() == 1);
   REQUIRE_THAT(parsed_container.mounts[0].source, Equals("/tmp/sockets"));
   REQUIRE_THAT(parsed_container.mounts[0].destination, Equals("/tmp/pulse/"));
-  REQUIRE_THAT(parsed_container.mounts[0].mode, Equals("rw,rprivate,rbind"));
+  REQUIRE_THAT(parsed_container.mounts[0].mode, Equals(""));
 
   REQUIRE(parsed_container.devices.size() == 0);
 

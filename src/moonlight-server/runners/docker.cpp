@@ -76,8 +76,6 @@ void RunDocker::run(std::size_t session_id,
         std::filesystem::permissions(udev_ctrl_path, std::filesystem::perms::all); // set 777
       }
     }
-    mounts.push_back(MountPoint{.source = udev_base_path.string(), .destination = "/run/udev/", .mode = "rw"});
-    mounts.push_back(MountPoint{.source = fake_udev_cli_path, .destination = "/usr/bin/fake-udev", .mode = "ro"});
   } else {
     logs::log(logs::warning,
               "[DOCKER] Unable to use fake-udev, check the env variable WOLF_DOCKER_FAKE_UDEV_PATH and the file at {}",

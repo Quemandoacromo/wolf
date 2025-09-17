@@ -43,8 +43,8 @@ inline std::shared_ptr<events::StreamSession> create_stream_session(immer::box<s
                                                                     int audio_channel_count,
                                                                     const std::string &aes_key,
                                                                     const std::string &aes_iv) {
-  std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
-  auto full_path = std::filesystem::path(host_state_folder) / current_client.app_state_folder / run_app.base.title;
+  auto full_path = std::filesystem::path(state->host->local_base_state_folder) / current_client.app_state_folder /
+                   run_app.base.title;
   logs::log(logs::debug, "Host app state folder: {}, creating paths", full_path.string());
   std::filesystem::create_directories(full_path);
 
@@ -62,26 +62,29 @@ inline std::shared_ptr<events::StreamSession> create_stream_session(immer::box<s
   std::uniform_int_distribution<> ints(0, 255);
   auto rtsp_fake_ip = fmt::format("{}.{}.{}.{}", ints(generator), ints(generator), ints(generator), ints(generator));
 
-  auto session = events::StreamSession{.display_mode = display_mode,
-                                       .audio_channel_count = audio_channel_count,
-                                       .event_bus = state->event_bus,
-                                       .client_settings = current_client.settings,
-                                       .app = std::make_shared<events::App>(run_app),
-                                       .app_state_folder = full_path.string(),
+  auto session = events::StreamSession{
+      .display_mode = display_mode,
+      .audio_channel_count = audio_channel_count,
+      .event_bus = state->event_bus,
+      .client_settings = current_client.settings,
+      .app = std::make_shared<events::App>(run_app),
+      .app_local_state_folder = full_path.string(),
+      .app_host_state_folder = std::filesystem::path(state->host->host_base_state_folder) /
+                               current_client.app_state_folder / run_app.base.title,
 
-                                       .aes_key = aes_key,
-                                       .aes_iv = aes_iv,
+      .aes_key = aes_key,
+      .aes_iv = aes_iv,
 
-                                       // Moonlight protocol extension to support IP-less connections
-                                       .rtp_secret_payload = rtp_secret_payload,
-                                       .enet_secret_payload = uints(generator),
-                                       .rtsp_fake_ip = rtsp_fake_ip,
+      // Moonlight protocol extension to support IP-less connections
+      .rtp_secret_payload = rtp_secret_payload,
+      .enet_secret_payload = uints(generator),
+      .rtsp_fake_ip = rtsp_fake_ip,
 
-                                       // client info
-                                       .session_id = get_client_id(current_client),
-                                       .video_stream_port = static_cast<unsigned short>(get_port(VIDEO_PING_PORT)),
-                                       .audio_stream_port = static_cast<unsigned short>(get_port(AUDIO_PING_PORT)),
-                                       .control_stream_port = static_cast<unsigned short>(get_port(CONTROL_PORT))};
+      // client info
+      .session_id = get_client_id(current_client),
+      .video_stream_port = static_cast<unsigned short>(get_port(VIDEO_PING_PORT)),
+      .audio_stream_port = static_cast<unsigned short>(get_port(AUDIO_PING_PORT)),
+      .control_stream_port = static_cast<unsigned short>(get_port(CONTROL_PORT))};
 
   return std::make_shared<events::StreamSession>(session);
 }

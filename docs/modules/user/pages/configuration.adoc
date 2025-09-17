@@ -45,7 +45,7 @@ Wolf is configured via a TOML config file and some additional optional ENV varia
 
 |HOST_APPS_STATE_FOLDER
 |/etc/wolf
-|The base folder in the host where the running apps will store permanent state
+|The base folder in the host where the running apps will store permanent state, if not set Wolf will automatically use the path that is mounted in the docker container
 
 |WOLF_RENDER_NODE
 |/dev/dri/renderD128
@@ -77,19 +77,18 @@ Additional env variables useful when debugging:
 [#data_setup]
 == Where apps will store permanent data?
 
-Since Wolf supports multiple streaming sessions at the same time and each session can run a different app, we need to make sure that each app has its own folder where it can store permanent data. +
-To achieve this, for each running app, Wolf will create a folder structure like this:
+Wolf is designed to support multiple streaming sessions simultaneously, each potentially running a different app.
+To ensure that each app’s data remains persistent and isolated, Wolf automatically creates a dedicated folder structure for every app instance.
 
-[source]
-----
-${HOST_APPS_STATE_FOLDER}/${app_state_folder}/${app_title}
-----
+When using the configuration provided in the quickstart guide, this structure is located at `/etc/wolf/${app_state_folder}/${app_title}` on the host system.
+This folder is then mounted as the home directory (`/home/retro`) inside the app’s Docker container, using a bind mount like `-v /etc/wolf/${app_state_folder}/${app_title}:/home/retro`.
 
-and then mount that as the home (`/home/retro`) for the docker container that will run the selected app. +
+The magic of Wolf lies in its ability to dynamically resolve the host path, regardless of where `/etc/wolf` is actually located. +
+For example, if you run Wolf mounting `/etc/wolf` to a custom location on your host such as `-v /mnt/drive/wolf:/etc/wolf:rw` Wolf will automatically adjust the mount path for each app.
+In this case, the app’s data will be stored in `/mnt/drive/wolf/${app_state_folder}/${app_title}` on the host, but still appear as `/home/retro` inside the app container.
 
-These 3 variables are defined as follows:
+These two variables are defined as follows:
 
-* `HOST_APPS_STATE_FOLDER`: defaults to `/etc/wolf`, can be changed via ENV
 * `app_state_folder`: defaults to a unique identifier for each client so that every Moonlight session will have its own folder.
 Can be changed in the `config.toml` file
 * `app_title`: the title of the app as defined in the `config.toml` file
@@ -114,20 +113,6 @@ app_state_folder = "common"               # <-- !!!
 ....
 
 This way, when running any app from those two clients, they will share the same home folder by mounting `${HOST_APPS_STATE_FOLDER}/common/${app_title}` as `/home/retro` in the docker container.
-
-=== Change the `HOST_APPS_STATE_FOLDER`
-
-Changing this folder via ENV variable is not enough; Wolf expects to be able to access files under this folder, so you need to make sure that the new folder is created and mounted in the Wolf container. +
-
-For example, if you want to change the `HOST_APPS_STATE_FOLDER` to `/mnt/drive/wolf` you need to change the docker run command with:
-
-* `-e HOST_APPS_STATE_FOLDER=/mnt/drive/wolf`
-* `-v /mnt/drive/wolf:/mnt/drive/wolf:rw`
-
-Keeping `HOST_APPS_STATE_FOLDER` unchanged and only modifying `-v /mnt/drive/wolf:/etc/wolf:rw` is not sufficient.
-Because app container mount home directory according to `HOST_APPS_STATE_FOLDER` (i.e. `-v ${HOST_APPS_STATE_FOLDER}/${app_state_folder}/${app_title}:/home/retro`)
-
-Since Wolf keeps the configuration in `/etc/wolf/cfg`, you need to add an additional mount to ensure that Wolf's configuration is persistently stored (i.e., -v `/mnt/drive/wolf/cfg:/etc/wolf/cfg:rw`).
 
 == TOML file
 
@@ -456,10 +441,6 @@ video/x-raw, framerate={fps}/1
 
 In case you have two GPUs that will use the same encoder pipeline (example: an AMD iGPU and an AMD GPU card) you can override the `video_params` with the corresponding encoder plugin; see:
 https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1167[gstreamer/issues/1167].
-
-== Directly launch a Steam game
-
-This has been moved to the xref:steam.adoc[] page.
 
 == Changing and Switching Keyboard Layouts in wolf Apps Containers
 

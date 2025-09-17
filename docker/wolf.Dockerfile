@@ -108,8 +108,7 @@ RUN mkdir -p $WOLF_CFG_FOLDER
 COPY --from=wolf-builder /wolf/wolf /wolf/wolf
 COPY --from=wolf-builder /wolf/fake-udev /wolf/fake-udev
 
-ENV XDG_RUNTIME_DIR=/tmp/sockets \
-    GST_GL_API=gles2 \
+ENV GST_GL_API=gles2 \
     GST_GL_WINDOW=surfaceless \
     WOLF_USE_ZERO_COPY=TRUE \
     WOLF_LOG_LEVEL=INFO \
@@ -127,6 +126,10 @@ ENV XDG_RUNTIME_DIR=/tmp/sockets \
     PUID=0 \
     PGID=0 \
     UNAME="root"
+
+# Setting up XDG_RUNTIME_DIR this will automatically create a volume when starting the container
+VOLUME /run/user/wolf/
+ENV XDG_RUNTIME_DIR=/run/user/wolf
 
 # HTTPS
 EXPOSE 47984/tcp
