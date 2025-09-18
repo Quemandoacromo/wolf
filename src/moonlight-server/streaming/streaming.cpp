@@ -116,16 +116,23 @@ void start_audio_producer(std::size_t session_id,
                           const std::string &sink_name,
                           const std::string &server_name) {
   std::string channel_mask;
-  switch(channel_count) {
-    case 2: channel_mask = "0x3"; break;
-    case 6: channel_mask = "0x3f"; break;
-    case 8: channel_mask = "0xc3f"; break;
-    default: channel_mask = "";
+  switch (channel_count) {
+  case 2:
+    channel_mask = "0x3";
+    break;
+  case 6:
+    channel_mask = "0x3f";
+    break;
+  case 8:
+    channel_mask = "0xc3f";
+    break;
+  default:
+    channel_mask = "";
   }
-  
-  auto pipeline = fmt::format("pulsesrc device=\"{sink_name}\" server=\"{server_name}\" ! " //
-                              "audio/x-raw, channels={channels}, channel-mask=(bitmask){channel_mask}, rate=48000 ! "             //
-                              "queue leaky=downstream max-size-buffers=3 ! "                //
+
+  auto pipeline = fmt::format("pulsesrc device=\"{sink_name}\" server=\"{server_name}\" ! "                           //
+                              "audio/x-raw, channels={channels}, channel-mask=(bitmask){channel_mask}, rate=48000 ! " //
+                              "queue leaky=downstream max-size-buffers=3 ! "                                          //
                               "interpipesink name=\"{session_id}_audio\" sync=true async=false max-buffers=3",
                               fmt::arg("session_id", session_id),
                               fmt::arg("channels", channel_count),
