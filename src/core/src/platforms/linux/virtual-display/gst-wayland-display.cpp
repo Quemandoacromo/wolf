@@ -170,23 +170,31 @@ static const std::map<unsigned int, unsigned int> key_mappings = {
 };
 
 void WaylandKeyboard::press(unsigned int key_code) {
-  auto msg = /* clang-format off */
-                          gst_structure_new("KeyboardKey",
-                            "key", G_TYPE_UINT, key_mappings.at(key_code),
-                            "pressed", G_TYPE_BOOLEAN, true,
-                            NULL);
-  /* clang-format on */
-  gstreamer::send_message(w_state->wayland_plugin.get(), msg);
+  if (key_mappings.contains(key_code)) {
+    auto msg = /* clang-format off */
+                           gst_structure_new("KeyboardKey",
+                             "key", G_TYPE_UINT, key_mappings.at(key_code),
+                             "pressed", G_TYPE_BOOLEAN, true,
+                             NULL);
+    /* clang-format on */
+    gstreamer::send_message(w_state->wayland_plugin.get(), msg);
+  } else {
+    logs::log(logs::warning, "Key code not found: {}", key_code);
+  }
 }
 
 void WaylandKeyboard::release(unsigned int key_code) {
-  auto msg = /* clang-format off */
-                          gst_structure_new("KeyboardKey",
-                            "key", G_TYPE_UINT, key_mappings.at(key_code),
-                            "pressed", G_TYPE_BOOLEAN, false,
-                            NULL);
-  /* clang-format on */
-  gstreamer::send_message(w_state->wayland_plugin.get(), msg);
+  if (key_mappings.contains(key_code)) {
+    auto msg = /* clang-format off */
+                           gst_structure_new("KeyboardKey",
+                             "key", G_TYPE_UINT, key_mappings.at(key_code),
+                             "pressed", G_TYPE_BOOLEAN, false,
+                             NULL);
+    /* clang-format on */
+    gstreamer::send_message(w_state->wayland_plugin.get(), msg);
+  } else {
+    logs::log(logs::warning, "Key code not found: {}", key_code);
+  }
 }
 
 void WaylandTouchScreen::down(unsigned int touch_id, double x, double y) {

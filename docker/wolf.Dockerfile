@@ -42,8 +42,8 @@ RUN <<_GST_WAYLAND_DISPLAY
 
     git clone https://github.com/games-on-whales/gst-wayland-display
     cd gst-wayland-display
-    git checkout fd9a6d2
-    cargo install --locked cargo-c
+    git checkout dfeebb19b48f32207469e166a3955f5d65b5e6c6
+    cargo install cargo-c
     cargo cinstall -p gst-plugin-wayland-display --prefix=/usr/local/lib/x86_64-linux-gnu/ --libdir=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0
 _GST_WAYLAND_DISPLAY
 
@@ -91,7 +91,7 @@ RUN apt-get update -y && \
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
     libwayland-server0 libinput10 libxkbcommon0 libgbm1 \
-    libglvnd0 libgl1 libglx0 libegl1 libgles2 xwayland \
+    libglvnd0 libgl1 libglx0 libegl1 libgles2 xwayland hwdata \
     && rm -rf /var/lib/apt/lists/*
 
 ENV GST_PLUGIN_PATH=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/
@@ -106,8 +106,7 @@ ENV WOLF_CFG_FOLDER=/etc/wolf/cfg
 COPY --from=wolf-builder /wolf/wolf /wolf/wolf
 COPY --from=wolf-builder /wolf/fake-udev /wolf/fake-udev
 
-ENV XDG_RUNTIME_DIR=/tmp/sockets \
-    GST_GL_API=gles2 \
+ENV GST_GL_API=gles2 \
     GST_GL_PLATFORM=egl \
     GST_GL_WINDOW=surfaceless \
     WOLF_USE_ZERO_COPY=TRUE \
@@ -127,6 +126,10 @@ ENV XDG_RUNTIME_DIR=/tmp/sockets \
     PUID=0 \
     PGID=0 \
     UNAME="root"
+
+# Setting up XDG_RUNTIME_DIR this will automatically create a volume when starting the container
+VOLUME /run/user/wolf/
+ENV XDG_RUNTIME_DIR=/run/user/wolf
 
 # HTTPS
 EXPOSE 47984/tcp

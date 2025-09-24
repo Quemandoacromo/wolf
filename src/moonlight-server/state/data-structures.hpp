@@ -105,6 +105,21 @@ struct Host {
   // Network information can be manually set by users, if not, we'll automatically gather them
   std::optional<std::string> internal_ip;
   std::optional<std::string> mac_address;
+
+  /**
+   * The base path on the host where we are allowed to store data
+   */
+  std::string host_base_state_folder;
+
+  /**
+   * The path in the current Wolf context (probably a container) where we are allowed to store data
+   */
+  std::string local_base_state_folder;
+
+  /**
+   * The path (or usually the Docker volume) on the host where we'll put the audio/video sockets
+   */
+  std::string host_xdg_runtime_dir;
 };
 
 enum class PAIR_PHASE {

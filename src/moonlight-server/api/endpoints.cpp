@@ -547,7 +547,7 @@ void UnixSocketServer::endpoint_GetIcon(const HTTPRequest &req, std::shared_ptr<
   }
   // TODO: implement coroutines for CURL
   std::thread([this, socket, icon_path = utils::to_string(icon_path[1])]() {
-    if (auto icon = utils::get_icon(icon_path)) {
+    if (auto icon = utils::get_icon(this->state_->app_state->host->local_base_state_folder, icon_path)) {
       send_http(socket,
                 200,
                 {"Content-Length: " + std::to_string(icon->size()), "Content-Type: image/png"},

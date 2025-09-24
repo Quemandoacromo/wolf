@@ -196,7 +196,9 @@ setup_moonlight_handlers(const immer::box<state::AppState> &app_state,
                   .wayland_display = run_session->stream_session->wayland_display->load(),
                   .audio_server = audio_server,
                   .audio_sink = run_session->stream_session->audio_sink->load(),
-                  .state_folder = run_session->stream_session->app_state_folder,
+                  .host = app_state->host,
+                  .app_local_state_folder = run_session->stream_session->app_local_state_folder,
+                  .app_host_state_folder = run_session->stream_session->app_host_state_folder,
                   .xdg_runtime_dir = runtime_dir,
                   .client_settings = run_session->stream_session->client_settings}});
 

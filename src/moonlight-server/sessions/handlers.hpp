@@ -35,7 +35,9 @@ struct RunnerArgs {
   const std::optional<AudioServer> &audio_server;
   const std::shared_ptr<audio::VSink> audio_sink;
 
-  const std::string &state_folder;
+  const immer::box<state::Host> host;
+  const std::string &app_local_state_folder;
+  const std::string &app_host_state_folder;
   const std::string &xdg_runtime_dir;
 
   immer::box<config::ClientSettings> client_settings;

@@ -104,42 +104,47 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
                                             ev_bus);
           }).detach();
 
-          auto w_display_ready = on_ready->get_future().then([lobby, runtime_dir, ev_bus, audio_server, lobby_settings](
-                                                                 auto fut) {
-            streaming::WaylandDisplayReady ready = fut.get();
+          auto w_display_ready = on_ready->get_future().then(
+              [lobby, runtime_dir, ev_bus, audio_server, lobby_settings, host = app_state->host](auto fut) {
+                streaming::WaylandDisplayReady ready = fut.get();
 
-            auto wl_state = virtual_display::create_wayland_display(ready.wayland_plugin, ready.wayland_socket_name);
-            // Set the wayland display
-            lobby->wayland_display->store(wl_state);
+                auto wl_state =
+                    virtual_display::create_wayland_display(ready.wayland_plugin, ready.wayland_socket_name);
+                // Set the wayland display
+                lobby->wayland_display->store(wl_state);
 
-            { // Start runner
-              logs::log(logs::debug, "[LOBBY] Start runner");
-              std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
-              auto full_path = std::filesystem::path(host_state_folder) / lobby_settings->runner_state_folder;
-              logs::log(logs::debug, "Host app state folder: {}, creating paths", full_path.string());
-              std::filesystem::create_directories(full_path);
+                { // Start runner
+                  logs::log(logs::debug, "[LOBBY] Start runner");
+                  auto full_path = std::filesystem::path(host->local_base_state_folder) /
+                                   lobby_settings->runner_state_folder;
+                  logs::log(logs::debug, "Host app state folder: {}, creating paths", full_path.string());
+                  std::filesystem::create_directories(full_path);
 
-              std::thread([=]() {
-                start_runner(lobby->runner,
-                             lobby->plugged_devices_queue,
-                             immer::box<RunnerArgs>{RunnerArgs{.session_id = lobby->id,
-                                                               .video_settings = lobby_settings->video_settings,
-                                                               .wayland_display = lobby->wayland_display->load(),
-                                                               .audio_server = audio_server,
-                                                               .audio_sink = lobby->audio_sink->load(),
-                                                               .state_folder = full_path,
-                                                               .xdg_runtime_dir = runtime_dir,
-                                                               .client_settings = lobby_settings->client_settings}});
-                // Runner process ended, stop the lobby
-                lobby->wayland_display->store(nullptr);
+                  std::thread([=]() {
+                    start_runner(lobby->runner,
+                                 lobby->plugged_devices_queue,
+                                 immer::box<RunnerArgs>{RunnerArgs{
+                                     .session_id = lobby->id,
+                                     .video_settings = lobby_settings->video_settings,
+                                     .wayland_display = lobby->wayland_display->load(),
+                                     .audio_server = audio_server,
+                                     .audio_sink = lobby->audio_sink->load(),
+                                     .host = host,
+                                     .app_local_state_folder = full_path.string(),
+                                     .app_host_state_folder = std::filesystem::path(host->host_base_state_folder) /
+                                                              lobby_settings->runner_state_folder,
+                                     .xdg_runtime_dir = runtime_dir,
+                                     .client_settings = lobby_settings->client_settings}});
+                    // Runner process ended, stop the lobby
+                    lobby->wayland_display->store(nullptr);
 
-                ev_bus->fire_event<immer::box<events::StopLobbyEvent>>(
-                    immer::box<events::StopLobbyEvent>{events::StopLobbyEvent{.lobby_id = lobby->id}});
-              }).detach();
-            }
+                    ev_bus->fire_event<immer::box<events::StopLobbyEvent>>(
+                        immer::box<events::StopLobbyEvent>{events::StopLobbyEvent{.lobby_id = lobby->id}});
+                  }).detach();
+                }
 
-            lobby_settings->on_setup_over.get()->set_value(true);
-          });
+                lobby_settings->on_setup_over.get()->set_value(true);
+              });
         }
 
         { // Create audio virtual sink

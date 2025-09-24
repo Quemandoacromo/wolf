@@ -384,7 +384,8 @@ struct StreamSession {
   std::shared_ptr<EventBusType> event_bus;
   immer::box<wolf::config::ClientSettings> client_settings;
   std::shared_ptr<App> app;
-  std::string app_state_folder;
+  std::string app_local_state_folder;
+  std::string app_host_state_folder;
 
   // gcm encryption keys
   std::string aes_key;

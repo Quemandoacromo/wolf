@@ -51,7 +51,7 @@ std::optional<std::string> get_file_content(const std::filesystem::path &path) {
   return content;
 }
 
-std::optional<std::string> get_icon(std::string_view icon_path) {
+std::optional<std::string> get_icon(std::string_view base_local_path, std::string_view icon_path) {
   if (icon_path.starts_with("/")) { // Absolute path
     auto asset_path = std::filesystem::path(icon_path);
     if (auto file_content = utils::get_file_content(asset_path)) {
@@ -64,8 +64,7 @@ std::optional<std::string> get_icon(std::string_view icon_path) {
     }
     logs::log(logs::warning, "Could not download configured asset: {}", icon_path);
   } else { // Assume it's a relative path (legacy setting)
-    std::string host_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
-    auto asset_path = std::filesystem::path(host_state_folder) / icon_path;
+    auto asset_path = std::filesystem::path(base_local_path) / icon_path;
     if (auto file_content = utils::get_file_content(asset_path)) {
       return file_content.value();
     }

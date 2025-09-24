@@ -7,6 +7,10 @@
 #include <csignal>
 #include <exceptions/exceptions.h>
 #include <filesystem>
+#include <immer/array_transient.hpp>
+#include <immer/map_transient.hpp>
+#include <immer/vector_transient.hpp>
+#include <introspect/introspect.hpp>
 #include <mdns_cpp/logger.hpp>
 #include <mdns_cpp/mdns.hpp>
 #include <memory>
@@ -57,12 +61,30 @@ state::Host get_host_config(std::string_view pkey_filename, std::string_view cer
     mac_address = override_mac;
   }
 
+  std::string local_base_state_folder = utils::get_env("HOST_APPS_STATE_FOLDER", "/etc/wolf");
+  std::string host_base_state_folder = local_base_state_folder;
+  std::string host_xdg_runtime_dir = utils::get_env("XDG_RUNTIME_DIR", "/tmp/sockets");
+
+  docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
+  if (auto container = introspect::get_current_container(docker_api)) {
+    host_base_state_folder =
+        introspect::get_host_path_for(*container, local_base_state_folder).value_or(local_base_state_folder);
+    host_xdg_runtime_dir =
+        introspect::get_host_path_for(*container, host_xdg_runtime_dir).value_or(host_xdg_runtime_dir);
+  } else {
+    logs::log(logs::warning,
+              "Unable to get the container that is running Wolf, automatic mounts matching is disabled.");
+  }
+
   return {state::DISPLAY_CONFIGURATIONS,
           state::AUDIO_CONFIGURATIONS,
           server_cert,
           server_pkey,
           internal_ip,
-          mac_address};
+          mac_address,
+          host_base_state_folder,
+          local_base_state_folder,
+          host_xdg_runtime_dir};
 }
 
 /**
@@ -90,7 +112,7 @@ auto initialize(std::string_view config_file, std::string_view pkey_filename, st
  * if that fails, we run our own PulseAudio container and connect to it
  * if that fails, we can't return an AudioServer, hence the optional!
  */
-std::optional<sessions::AudioServer> setup_audio_server(const std::string &runtime_dir) {
+std::optional<sessions::AudioServer> setup_audio_server(const std::string &host_runtime_dir, const std::string &runtime_dir) {
   auto audio_server = audio::connect();
   if (audio::connected(audio_server)) {
     return {{.server = audio_server}};
@@ -114,7 +136,7 @@ std::optional<sessions::AudioServer> setup_audio_server(const std::string &runti
             .image = utils::get_env("WOLF_PULSE_IMAGE", "ghcr.io/games-on-whales/pulseaudio:master"),
             .status = docker::CREATED,
             .ports = {},
-            .mounts = {docker::MountPoint{.source = runtime_dir, .destination = "/tmp/pulse/", .mode = "rw"}},
+            .mounts = {docker::MountPoint{.source = host_runtime_dir, .destination = "/tmp/pulse/", .mode = "rw"}},
             .env = {"XDG_RUNTIME_DIR=/tmp/pulse/", "UNAME=retro", "UID=1000", "GID=1000"}},
         // The following is needed when using podman (or any container that uses SELINUX). This way we can access the
         // socket that is created by PulseAudio from other containers (including this one).
@@ -198,7 +220,7 @@ void run() {
     }
   }).detach();
 
-  auto audio_server = setup_audio_server(runtime_dir);
+  auto audio_server = setup_audio_server(local_state->host->host_xdg_runtime_dir, runtime_dir);
   // Setup event handlers for Moonlight related events (Start/Stop stream, hotplug, etc)
   auto moonlight_sess_handlers = sessions::setup_moonlight_handlers(local_state, runtime_dir, audio_server);
   // Setup event handlers for player Lobbies

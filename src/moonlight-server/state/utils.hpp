@@ -14,6 +14,6 @@ std::optional<std::string> get_file_content(const std::filesystem::path &path);
  *
  * icon_path can be a URL, a relative or absolute path
  */
-std::optional<std::string> get_icon(std::string_view icon_path);
+std::optional<std::string> get_icon(std::string_view base_local_path, std::string_view icon_path);
 
 } // namespace utils
