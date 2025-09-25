@@ -1,6 +1,7 @@
 #include <api/api.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <events/reflectors.hpp>
+#include <filesystem>
 #include <helpers/utils.hpp>
 #include <memory>
 #include <rfl/json.hpp>
@@ -9,9 +10,10 @@ namespace wolf::api {
 
 using namespace wolf::core;
 
-void start_server(immer::box<state::AppState> app_state) {
-  auto socket_path = utils::get_env("WOLF_SOCKET_PATH", "/tmp/wolf.sock");
-  logs::log(logs::info, "Starting API server on {}", socket_path);
+void start_server(std::string_view runtime_dir, immer::box<state::AppState> app_state) {
+  auto default_socket_path = std::filesystem::path(runtime_dir) / "wolf.sock";
+  auto socket_path = utils::get_env("WOLF_SOCKET_PATH", default_socket_path.c_str());
+  logs::log(logs::info, "Starting Wolf API server on {}", socket_path);
 
   ::unlink(socket_path);
   boost::asio::io_context io_context;

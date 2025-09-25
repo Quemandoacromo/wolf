@@ -118,7 +118,6 @@ ENV GST_GL_API=gles2 \
     WOLF_RENDER_NODE=/dev/dri/renderD128 \
     WOLF_STOP_CONTAINER_ON_EXIT=TRUE \
     WOLF_DOCKER_SOCKET=/var/run/docker.sock \
-    WOLF_SOCKET_PATH=$WOLF_CFG_FOLDER/wolf.sock \
     RUST_BACKTRACE=full \
     RUST_LOG=WARN \
     HOST_APPS_STATE_FOLDER=/etc/wolf \

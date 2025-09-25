@@ -10,7 +10,7 @@ namespace wolf::api {
 
 using namespace wolf::core;
 
-void start_server(immer::box<state::AppState> app_state);
+void start_server(std::string_view runtime_dir, immer::box<state::AppState> app_state);
 
 struct PendingPairClient {
   std::string pair_secret;

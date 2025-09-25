@@ -201,7 +201,7 @@ void run() {
                       state::get_port(state::AUDIO_PING_PORT),
                       local_state->event_bus);
   // Wolf API server
-  std::thread([local_state]() { wolf::api::start_server(local_state); }).detach();
+  std::thread([local_state, runtime_dir]() { wolf::api::start_server(runtime_dir, local_state); }).detach();
 
   // mDNS
   std::thread([hostname = local_state->config->hostname]() {

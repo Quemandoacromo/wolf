@@ -33,6 +33,7 @@ static std::optional<std::string> get_device_major(std::string_view type) {
 
 void RunDocker::run(std::string_view session_id,
                     std::string_view app_state_folder,
+                    std::string_view host_xdg_runtime_dir,
                     std::shared_ptr<events::devices_atom_queue> plugged_devices_queue,
                     const immer::array<std::string> &virtual_inputs,
                     const immer::array<std::pair<std::string, std::string>> &paths,
@@ -127,16 +128,15 @@ void RunDocker::run(std::string_view session_id,
     }
   }
 
-  { // Setup Wolf socket path (if the runner needs it)
-    auto socket_path = get_env("WOLF_SOCKET_PATH");
+  { // Setup Wolf socket path (if the runner needs it, and it hasn't been overridden via ENV)
     auto socket_path_container_env = std::find_if(full_env.begin(), full_env.end(), [](const std::string &env) {
       return env.find("WOLF_SOCKET_PATH") != std::string::npos;
     });
-    if (socket_path && socket_path_container_env != full_env.end()) {
+    if (!get_env("WOLF_SOCKET_PATH") && socket_path_container_env != full_env.end()) {
       // Change the associated mount point to pick up the right path from the host
       for (auto &mount : mounts) {
         if (mount.destination.find("wolf.sock") != std::string::npos) {
-          mount.source = socket_path;
+          mount.source = std::filesystem::path(host_xdg_runtime_dir) / "wolf.sock";
           break;
         }
       }

@@ -73,6 +73,7 @@ void start_runner(std::shared_ptr<events::Runner> runner,
   /* Finally run the app, this will stop here until over */
   runner->run(args->session_id,
               args->app_local_state_folder,
+              args->host->host_xdg_runtime_dir,
               plugged_devices_queue,
               all_devices.persistent(),
               mounted_paths.persistent(),

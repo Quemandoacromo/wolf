@@ -31,6 +31,7 @@ public:
 
   void run(std::string_view session_id,
            std::string_view app_state_folder,
+           std::string_view host_xdg_runtime_dir,
            std::shared_ptr<events::devices_atom_queue> plugged_devices_queue,
            const immer::array<std::string> &virtual_inputs,
            const immer::array<std::pair<std::string, std::string>> &paths,

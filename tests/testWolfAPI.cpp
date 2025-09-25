@@ -105,7 +105,7 @@ TEST_CASE("Pair APIs", "[API]") {
       .running_sessions = running_sessions});
 
   // Start the server
-  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
   server_thread.detach();
   std::this_thread::sleep_for(std::chrono::milliseconds(42)); // Wait for the server to start
 
@@ -210,7 +210,7 @@ TEST_CASE("APPs APIs", "[API]") {
       .running_sessions = running_sessions});
 
   // Start the server
-  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
   server_thread.detach();
   std::this_thread::sleep_for(std::chrono::milliseconds(42)); // Wait for the server to start
 
@@ -288,7 +288,7 @@ TEST_CASE("Profile APIs", "[API]") {
       .running_sessions = running_sessions});
 
   // Start the server
-  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
   server_thread.detach();
   std::this_thread::sleep_for(std::chrono::milliseconds(42)); // Wait for the server to start
 
@@ -369,7 +369,7 @@ TEST_CASE("Sessions APIs", "[API]") {
       .running_sessions = running_sessions});
 
   // Start the server
-  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
   server_thread.detach();
   std::this_thread::sleep_for(std::chrono::milliseconds(42)); // Wait for the server to start
 
@@ -438,7 +438,7 @@ TEST_CASE("Lobbies APIs", "[API]") {
       .lobbies = std::make_shared<immer::atom<immer::vector<events::Lobby>>>(),
       .running_sessions = running_sessions});
   // Start the server
-  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
   server_thread.detach();
 
   // Setup the event bus handlers for the lobbies events
@@ -591,7 +591,7 @@ TEST_CASE("Utils APIs", "[API]") {
       .lobbies = std::make_shared<immer::atom<immer::vector<events::Lobby>>>(),
       .running_sessions = running_sessions});
   // Start the server
-  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
   server_thread.detach();
 
   // Wait for the server to start
@@ -667,7 +667,7 @@ TEST_CASE("SSE APIs", "[API]") {
       .running_sessions = running_sessions});
 
   // Start the server
-  std::thread server_thread([app_state]() { wolf::api::start_server(app_state); });
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
   server_thread.detach();
   std::this_thread::sleep_for(std::chrono::milliseconds(42)); // Wait for the server to start
 
