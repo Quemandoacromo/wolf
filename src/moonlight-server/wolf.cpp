@@ -112,7 +112,8 @@ auto initialize(std::string_view config_file, std::string_view pkey_filename, st
  * if that fails, we run our own PulseAudio container and connect to it
  * if that fails, we can't return an AudioServer, hence the optional!
  */
-std::optional<sessions::AudioServer> setup_audio_server(const std::string &host_runtime_dir, const std::string &runtime_dir) {
+std::optional<sessions::AudioServer> setup_audio_server(const std::string &host_runtime_dir,
+                                                        const std::string &runtime_dir) {
   auto audio_server = audio::connect();
   if (audio::connected(audio_server)) {
     return {{.server = audio_server}};
