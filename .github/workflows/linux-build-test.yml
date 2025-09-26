@@ -47,7 +47,7 @@ jobs:
         run: |
           git clone https://github.com/games-on-whales/gst-wayland-display
           cd gst-wayland-display
-          git checkout dfeebb19b48f32207469e166a3955f5d65b5e6c6
+          git checkout 412d26ae19cc4e729fda36ee0fb6a2dc38fec0ef
           cargo install --locked cargo-c
           cargo cinstall -p c-bindings --prefix=/usr/local
 
@@ -120,7 +120,7 @@ jobs:
         run: |
           git clone https://github.com/games-on-whales/gst-wayland-display
           cd gst-wayland-display
-          git checkout dfeebb19b48f32207469e166a3955f5d65b5e6c6
+          git checkout 412d26ae19cc4e729fda36ee0fb6a2dc38fec0ef
           cargo install --locked cargo-c
           cargo cinstall -p c-bindings --prefix=/usr/local --destdir=${{runner.workspace}}
 
