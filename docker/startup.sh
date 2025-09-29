@@ -8,7 +8,6 @@ set -e
 export WOLF_CFG_FOLDER=$HOST_APPS_STATE_FOLDER/cfg
 mkdir -p $WOLF_CFG_FOLDER
 # Adjust env variables if the user moved the folder
-export WOLF_SOCKET_PATH=$WOLF_CFG_FOLDER/wolf.sock
 export WOLF_CFG_FILE=$WOLF_CFG_FOLDER/config.toml
 export WOLF_PRIVATE_KEY_FILE=$WOLF_CFG_FOLDER/key.pem
 export WOLF_PRIVATE_CERT_FILE=$WOLF_CFG_FOLDER/cert.pem
