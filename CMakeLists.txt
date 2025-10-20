@@ -68,6 +68,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/)
 include(TargetLinkLibrariesSystem)
 
 add_subdirectory(src/core)
+add_subdirectory(src/gst-video-context)
 
 if (UNIX AND NOT APPLE)
     add_subdirectory(src/fake-udev)
