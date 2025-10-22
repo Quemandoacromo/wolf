@@ -1,5 +1,6 @@
 #include "gst-video-context.hpp"
 #include <gst/cuda/gstcudacontext.h>
+#include <gst/cuda/gstcudaloader.h>
 #include <gst/cuda/gstcudautils.h>
 #include <helpers/logger.hpp>
 
@@ -11,6 +12,10 @@ struct GstVideoContext {
   cuda_context_ptr cuda_context;
   GstContext *context;
 };
+
+bool init() {
+  return gst_cuda_load_library();
+}
 
 bool set_context(gst_context_ptr context, GstMessage *msg) {
   if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_NEED_CONTEXT) {

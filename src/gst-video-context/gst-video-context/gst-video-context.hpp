@@ -6,6 +6,11 @@
 
 namespace gst_video_context {
 
+/**
+ * Dynamically links and load up the required libraries; needs to be called once.
+ */
+bool init();
+
 struct GstVideoContext;
 using gst_context_ptr = std::shared_ptr<GstVideoContext>;
 

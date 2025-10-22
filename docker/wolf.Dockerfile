@@ -25,6 +25,7 @@ RUN apt-get update -y && \
     libudev-dev \
     libdrm-dev \
     libpci-dev \
+    libglib2.0-dev libegl-dev libgles-dev libopengl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ## Install Rust in order to build our custom compositor
@@ -42,7 +43,7 @@ RUN <<_GST_WAYLAND_DISPLAY
 
     git clone https://github.com/games-on-whales/gst-wayland-display
     cd gst-wayland-display
-    git checkout c208406b
+    git checkout e89d9f5d
     cargo install cargo-c
     cargo cinstall -p gst-plugin-wayland-display --prefix=/usr/local/lib/x86_64-linux-gnu/ --libdir=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0
 _GST_WAYLAND_DISPLAY
