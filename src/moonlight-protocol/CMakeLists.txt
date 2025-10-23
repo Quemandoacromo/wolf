@@ -101,13 +101,11 @@ set_target_properties(moonlight PROPERTIES OUTPUT_NAME "moonlight")
 # moonlight-common-c dependencies
 target_include_directories(moonlight PUBLIC ./rtsp)
 
-find_package(Boost ${BOOST_VERSION} REQUIRED)
-
 
 target_link_libraries(
         moonlight PUBLIC
         wolf::crypto
-        Boost::boost)
+        ${Boost_LIBRARIES})
 
 # All users of this library will need at least C++17
 target_compile_features(moonlight PUBLIC cxx_std_17)

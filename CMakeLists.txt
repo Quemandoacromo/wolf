@@ -60,12 +60,11 @@ if (CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
 endif (CCACHE_FOUND)
 
-set(BOOST_VERSION 1.87.0)
-
 # FetchContent added in CMake 3.11, downloads during the configure step
 include(FetchContent)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/)
 
+include(BoostLoader)
 include(TargetLinkLibrariesSystem)
 
 add_subdirectory(src/core)

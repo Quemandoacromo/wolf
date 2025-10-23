@@ -23,34 +23,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fmtlib)
 target_link_libraries_system(wolf_helpers INTERFACE fmt::fmt-header-only)
 
-# Boost for logging
-set(BOOST_COMPONENTS
-        log
-        container
-        # Align needed by boost::json
-        align
-        system
-)
-find_package(Boost ${BOOST_VERSION} EXACT COMPONENTS ${BOOST_COMPONENTS})
-if (NOT Boost_FOUND)
-    message(STATUS "Boost (or some required components) not found, falling back to FetchContent instead")
-
-    set(BOOST_INCLUDE_LIBRARIES ${BOOST_COMPONENTS})
-    set(BOOST_ENABLE_CMAKE ON)
-    FetchContent_Declare(
-            Boost
-            URL "https://github.com/boostorg/boost/releases/download/boost-${BOOST_VERSION}/boost-${BOOST_VERSION}-cmake.tar.xz"
-    )
-    FetchContent_MakeAvailable(Boost)
-
-    set(Boost_FOUND TRUE)
-    set(Boost_INCLUDE_DIRS "$<BUILD_INTERFACE:${Boost_SOURCE_DIR}/libs/headers/include>")
-    set(Boost_LIBRARIES "")  # cmake-lint: disable=C0103
-    foreach (component ${BOOST_COMPONENTS})
-        list(APPEND Boost_LIBRARIES "Boost::${component}")
-    endforeach ()
-endif ()
-include_directories(${Boost_INCLUDE_DIRS})
 target_link_libraries(wolf_helpers INTERFACE ${Boost_LIBRARIES})
 
 FetchContent_Declare(
