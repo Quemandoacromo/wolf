@@ -4,6 +4,7 @@ set(BOOST_COMPONENTS
         log
         container
         locale
+        process
         # Align needed by boost::json
         align
         system
