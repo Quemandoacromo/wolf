@@ -36,6 +36,11 @@ FetchContent_MakeAvailable(immer)
 target_link_libraries_system(moonlight PUBLIC immer)
 unset(FPHSA_NAME_MISMATCHED)
 
+# A nice little trick to disable warnings for external dependencies
+# see: https://stackoverflow.com/a/76128930
+get_directory_property(old_dir_compile_options COMPILE_OPTIONS)
+add_compile_options(-w)
+
 # FEC implementation
 FetchContent_Declare(
         nanors
@@ -62,6 +67,8 @@ if (NOT nanors_POPULATED)
 
     target_link_libraries_system(moonlight PUBLIC nanors::nanors)
 endif ()
+# Restore warnings
+set_directory_properties(PROPERTIES COMPILE_OPTIONS "${old_dir_compile_options}")
 
 # Additional algorithms for dealing with containers
 FetchContent_Declare(
@@ -94,7 +101,7 @@ set_target_properties(moonlight PROPERTIES OUTPUT_NAME "moonlight")
 # moonlight-common-c dependencies
 target_include_directories(moonlight PUBLIC ./rtsp)
 
-find_package(Boost 1.77 REQUIRED)
+find_package(Boost ${BOOST_VERSION} REQUIRED)
 
 
 target_link_libraries(

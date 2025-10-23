@@ -291,7 +291,7 @@ void start_streaming_video(immer::box<events::VideoSession> video_session,
       .socket = video_socket,
       .client_endpoint = std::make_shared<udp::endpoint>(boost::asio::ip::make_address(client_ip), client_port)});
   std::shared_ptr<NeedContextData> ctx_data_ptr = std::make_shared<NeedContextData>(
-      NeedContextData{.device_path = "", .gst_context = video_context}); // TODO: render node
+      NeedContextData{.device_path = video_session->render_node, .gst_context = video_context});
   run_pipeline(pipeline, [video_session, event_bus, udp_sink, ctx_data_ptr](auto pipeline) {
     if (auto app_sink_el = gst_bin_get_by_name(GST_BIN(pipeline.get()), "wolf_udp_sink")) {
       logs::log(logs::debug, "Setting up wolf_udp_sink");

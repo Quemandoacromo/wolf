@@ -24,14 +24,39 @@ FetchContent_MakeAvailable(fmtlib)
 target_link_libraries_system(wolf_helpers INTERFACE fmt::fmt-header-only)
 
 # Boost for logging
-find_package(Boost 1.77 REQUIRED COMPONENTS log container)
+set(BOOST_COMPONENTS
+        log
+        container
+        # Align needed by boost::json
+        align
+        system
+)
+find_package(Boost ${BOOST_VERSION} EXACT COMPONENTS ${BOOST_COMPONENTS})
+if (NOT Boost_FOUND)
+    message(STATUS "Boost (or some required components) not found, falling back to FetchContent instead")
+
+    set(BOOST_INCLUDE_LIBRARIES ${BOOST_COMPONENTS})
+    set(BOOST_ENABLE_CMAKE ON)
+    FetchContent_Declare(
+            Boost
+            URL "https://github.com/boostorg/boost/releases/download/boost-${BOOST_VERSION}/boost-${BOOST_VERSION}-cmake.tar.xz"
+    )
+    FetchContent_MakeAvailable(Boost)
+
+    set(Boost_FOUND TRUE)
+    set(Boost_INCLUDE_DIRS "$<BUILD_INTERFACE:${Boost_SOURCE_DIR}/libs/headers/include>")
+    set(Boost_LIBRARIES "")  # cmake-lint: disable=C0103
+    foreach (component ${BOOST_COMPONENTS})
+        list(APPEND Boost_LIBRARIES "Boost::${component}")
+    endforeach ()
+endif ()
 include_directories(${Boost_INCLUDE_DIRS})
 target_link_libraries(wolf_helpers INTERFACE ${Boost_LIBRARIES})
 
 FetchContent_Declare(
         boost_json
         GIT_REPOSITORY https://github.com/boostorg/json.git
-        GIT_TAG "boost-1.75.0")
+        GIT_TAG "boost-1.77.0")
 set(BOOST_JSON_BUILD_TESTS OFF)
 FetchContent_MakeAvailable(boost_json)
 target_link_libraries(wolf_helpers INTERFACE Boost::json)
