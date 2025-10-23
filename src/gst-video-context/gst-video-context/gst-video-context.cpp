@@ -1,8 +1,11 @@
 #include "gst-video-context.hpp"
+#include <filesystem>
 #include <gst/cuda/gstcudacontext.h>
 #include <gst/cuda/gstcudaloader.h>
 #include <gst/cuda/gstcudautils.h>
 #include <helpers/logger.hpp>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 namespace gst_video_context {
 
@@ -15,6 +18,115 @@ struct GstVideoContext {
 
 bool init() {
   return gst_cuda_load_library();
+}
+
+namespace fs = std::filesystem;
+
+std::optional<std::string> getPciBusIdFromDri(const fs::path &driPath) {
+  struct stat st{};
+  if (stat(driPath.c_str(), &st) != 0) {
+    return std::nullopt;
+  }
+
+  std::ostringstream sysfsPath;
+  sysfsPath << "/sys/dev/char/" << major(st.st_rdev) << ":" << minor(st.st_rdev) << "/device";
+
+  std::error_code ec;
+  fs::path deviceLink = fs::read_symlink(sysfsPath.str(), ec);
+  if (ec) {
+    return std::nullopt;
+  }
+
+  // ex 0000:01:00.0
+  std::string busId = deviceLink.filename().string();
+
+  // Validate format (should be domain:bus:device.function)
+  if (busId.length() < 7 || busId.find(':') == std::string::npos) {
+    return std::nullopt;
+  }
+
+  return busId;
+}
+
+bool isNvidiaGpu(const std::string &pciBusId) {
+  fs::path vendorPath = fs::path("/sys/bus/pci/devices") / pciBusId / "vendor";
+
+  std::ifstream vendorFile(vendorPath);
+  if (!vendorFile.is_open()) {
+    return false;
+  }
+
+  std::string vendor;
+  std::getline(vendorFile, vendor);
+  // NVIDIA vendor ID is 0x10de
+  return vendor == "0x10de";
+}
+
+std::optional<int> getCudaDeviceIndexFromPciBusId(const std::string &pciBusId) {
+  fs::path gpusDir = "/proc/driver/nvidia/gpus";
+
+  std::error_code ec;
+  if (!fs::exists(gpusDir, ec) || !fs::is_directory(gpusDir, ec)) {
+    return std::nullopt;
+  }
+
+  std::string pciBusIdLower = pciBusId;
+  std::transform(pciBusIdLower.begin(), pciBusIdLower.end(), pciBusIdLower.begin(), ::tolower);
+
+  for (const auto &entry : fs::directory_iterator(gpusDir, ec)) {
+    if (!entry.is_directory())
+      continue;
+
+    logs::log(logs::debug, "Found Nvidia GPU: {}", entry.path().string());
+
+    std::string gpuBusId = entry.path().filename().string();
+    std::string gpuBusIdLower = gpuBusId;
+    std::transform(gpuBusIdLower.begin(), gpuBusIdLower.end(), gpuBusIdLower.begin(), ::tolower);
+
+    if (gpuBusIdLower == pciBusIdLower) {
+      fs::path infoPath = entry.path() / "information";
+      std::ifstream infoFile(infoPath);
+      if (!infoFile.is_open()) {
+        continue;
+      }
+
+      std::string line;
+      while (std::getline(infoFile, line)) {
+        if (line.find("Device Minor:") != std::string::npos) {
+          size_t pos = line.find(':');
+          if (pos != std::string::npos) {
+            std::string minorStr = line.substr(pos + 1);
+            // Trim whitespace
+            minorStr.erase(0, minorStr.find_first_not_of(" \t"));
+            minorStr.erase(minorStr.find_last_not_of(" \t") + 1);
+
+            try {
+              return std::stoi(minorStr);
+            } catch (...) {
+              return std::nullopt;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::optional<int> getCudaDeviceFromDri(const fs::path &driPath) {
+  auto pciBusId = getPciBusIdFromDri(driPath);
+  if (!pciBusId) {
+    logs::log(logs::warning, "Failed to get PCI bus ID for device: {}", driPath.string());
+    return std::nullopt;
+  }
+
+  if (!isNvidiaGpu(*pciBusId)) {
+    logs::log(logs::warning, "Device: {} is not a NVIDIA GPU", driPath.string());
+    return std::nullopt;
+  }
+
+  return getCudaDeviceIndexFromPciBusId(*pciBusId);
 }
 
 bool set_context(gst_context_ptr context, GstMessage *msg) {
@@ -32,7 +144,8 @@ bool set_context(gst_context_ptr context, GstMessage *msg) {
 }
 
 cuda_context_ptr create_cuda_context(const std::string &device_path) {
-  auto device_id = 0; // TODO: device_path to device_id
+  auto device_id = getCudaDeviceFromDri(device_path).value_or(0);
+  logs::log(logs::info, "Creating CUDA context for device {} (detected CUDA device ID: {})", device_path, device_id);
   auto cuda_ctx = gst_cuda_context_new(device_id);
   if (cuda_ctx) {
     return std::shared_ptr<GstCudaContext>(cuda_ctx, gst_object_unref);
