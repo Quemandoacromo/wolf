@@ -396,7 +396,7 @@ std::optional<std::string> DockerAPI::inspect_image(std::string_view image_name)
     if (raw_msg && raw_msg->first == 200) {
       return raw_msg->second;
     } else if (raw_msg) {
-      logs::log(logs::debug, "[DOCKER] inspect_image returned {} - {}", raw_msg->first, raw_msg->second);
+      logs::log(logs::trace, "[DOCKER] inspect_image returned {} - {}", raw_msg->first, raw_msg->second);
     }
   }
   return std::nullopt;
