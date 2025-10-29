@@ -507,7 +507,8 @@ Podman Quadlets::
 +
 --
 
-Wolf will only run as a `rootful` service, so place your `wolf.container` file (populated with either the Nvidia or Intel/AMD examples below) in `/etc/containers/systemd`, then run `sudo systemctl daemon-reload` and `sudo systemctl start wolf.service` to start Wolf.
+The easiest way to run Wolf is to use a `rootful` service, this isn't a strict requirement; if you give access to the `/dev/dri` devices, `/etc/wolf` and install the required udev rules everything should work.
+Place your `wolf.container` file (populated with either the Nvidia or Intel/AMD examples below) in `/etc/containers/systemd`, then run `sudo systemctl daemon-reload` and `sudo systemctl start wolf.service` to start Wolf.
 
 **Nvidia**
 
@@ -577,7 +578,7 @@ StartLimitBurst=5
 AutoUpdate=registry
 ContainerName=%N
 HostName=%N
-Image=ghcr.io/games-on-whales/wolf:wolf-ui
+Image=ghcr.io/games-on-whales/wolf:stable
 AddCapability=CAP_SYS_PTRACE
 AddCapability=CAP_NET_ADMIN
 Network=host
@@ -600,7 +601,6 @@ Volume=/etc/wolf/:/etc/wolf:z
 Volume=/run/podman/podman.sock:/var/run/docker.sock:ro
 Environment=WOLF_STOP_CONTAINER_ON_EXIT=TRUE
 Environment=NVIDIA_DRIVER_VOLUME_NAME=nvidia-driver-vol
-Environment=WOLF_RENDER_NODE=/dev/dri/renderD129
 
 [Install]
 WantedBy=multi-user.target
@@ -648,7 +648,7 @@ StartLimitBurst=5
 AutoUpdate=registry
 ContainerName=%N
 HostName=%N
-Image=ghcr.io/games-on-whales/wolf:wolf-ui
+Image=ghcr.io/games-on-whales/wolf:stable
 AddCapability=CAP_SYS_PTRACE
 AddCapability=CAP_NET_ADMIN
 Network=host
