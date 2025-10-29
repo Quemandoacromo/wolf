@@ -531,7 +531,7 @@ Check volume exists with:
 
 [source,bash]
 ....
-docker volume ls | grep nvidia-driver
+sudo docker volume ls | grep nvidia-driver
 
 local     nvidia-driver-vol
 ....
