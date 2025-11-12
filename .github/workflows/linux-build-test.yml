@@ -48,9 +48,9 @@ jobs:
         run: |
           git clone https://github.com/games-on-whales/gst-wayland-display
           cd gst-wayland-display
-          git checkout 064b8d5
+          git checkout dadf6bf
           cargo install --locked cargo-c
-          cargo cinstall --no-default-features -p gst-plugin-wayland-display --prefix=/usr/local
+          cargo cinstall --no-default-features --features="" -p gst-plugin-wayland-display --prefix=/usr/local
 
       - name: Setup gst-interpipe
         run : |
@@ -131,9 +131,9 @@ jobs:
         run: |
           git clone https://github.com/games-on-whales/gst-wayland-display
           cd gst-wayland-display
-          git checkout 064b8d5
+          git checkout dadf6bf
           cargo install --locked cargo-c
-          cargo cinstall --no-default-features -p gst-plugin-wayland-display --prefix=/usr/local --destdir=${{runner.workspace}}
+          cargo cinstall --no-default-features --features="" -p gst-plugin-wayland-display --prefix=/usr/local --destdir=${{runner.workspace}}
 
       - name: Archive libgstwaylanddisplay-x86_64
         uses: actions/upload-artifact@v4
