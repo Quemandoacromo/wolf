@@ -1,5 +1,7 @@
 #pragma once
 
+#include "gst-video-context.hpp"
+
 #include <boost/asio.hpp>
 #include <chrono>
 #include <core/audio.hpp>
@@ -53,9 +55,11 @@ inline int get_port(STANDARD_PORTS_MAPPING port) {
   case RTSP_SETUP_PORT:
     return utils::get_env("WOLF_RTSP_SETUP_PORT") ? std::stoi(utils::get_env("WOLF_RTSP_SETUP_PORT")) : RTSP_SETUP_PORT;
   }
+  return -1;
 }
 
 using PairedClientList = immer::vector<immer::box<wolf::config::PairedClient>>;
+using ProfilesList = immer::vector<immer::box<events::Profile>>;
 
 enum Encoder {
   NVIDIA,
@@ -83,9 +87,11 @@ struct Config {
   std::shared_ptr<immer::atom<PairedClientList>> paired_clients;
 
   /**
-   * List of available Apps
+   * List of available Profiles,
+   * each profile contains a list of apps.
+   * Profiles will be shown in WolfUI
    */
-  std::shared_ptr<immer::atom<immer::vector<immer::box<events::App>>>> apps;
+  std::shared_ptr<immer::atom<ProfilesList>> profiles;
 };
 
 /**
@@ -175,6 +181,14 @@ struct AppState {
    * A shared bus of events so that we can decouple modules
    */
   std::shared_ptr<events::EventBusType> event_bus;
+
+  std::shared_ptr<immer::atom<immer::vector<events::Lobby>>> lobbies;
+
+  /**
+   * A single global Gstreamer video context shared with all the pipelines
+   */
+  std::shared_ptr<immer::atom<gst_video_context::gst_context_ptr>> gst_context =
+      std::make_shared<immer::atom<gst_video_context::gst_context_ptr>>();
 
   /**
    * A list of all currently running (and paused) streaming sessions

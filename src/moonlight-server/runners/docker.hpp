@@ -84,16 +84,16 @@ public:
                      docker_socket);
   }
 
-  void run(std::size_t session_id,
+  void run(std::string_view session_id,
            std::string_view app_state_folder,
+           std::string_view host_xdg_runtime_dir,
            std::shared_ptr<events::devices_atom_queue> plugged_devices_queue,
            const immer::array<std::string> &virtual_inputs,
            const immer::array<std::pair<std::string, std::string>> &paths,
            const immer::map<std::string, std::string> &env_variables,
            std::string_view render_node) override;
 
-  rfl::TaggedUnion<"type", wolf::config::AppCMD, wolf::config::AppDocker, wolf::config::AppChildSession>
-  serialize() override {
+  events::RunnerTypes serialize() const override {
     return wolf::config::AppDocker{
         .name = container.name,
         .image = container.image,

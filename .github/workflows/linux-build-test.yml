@@ -25,6 +25,7 @@ jobs:
           sudo apt-get install -y \
               g++ \
               cmake \
+              meson \
               ninja-build \
               libboost-locale-dev libboost-thread-dev libboost-filesystem-dev libboost-log-dev libboost-stacktrace-dev libboost-container-dev \
               libssl-dev \
@@ -47,9 +48,17 @@ jobs:
         run: |
           git clone https://github.com/games-on-whales/gst-wayland-display
           cd gst-wayland-display
-          git checkout 412d26ae19cc4e729fda36ee0fb6a2dc38fec0ef
+          git checkout f31e506
           cargo install --locked cargo-c
-          cargo cinstall -p c-bindings --prefix=/usr/local
+          cargo cinstall -p gst-plugin-wayland-display --prefix=/usr/local
+
+      - name: Setup gst-interpipe
+        run : |
+          git clone https://github.com/games-on-whales/gst-interpipe.git
+          cd gst-interpipe
+          mkdir build
+          meson build -Denable-gtk-doc=false
+          sudo meson install -C build
 
       - name: Archive libgstwaylanddisplay-aarch64
         uses: actions/upload-artifact@v4
@@ -58,6 +67,7 @@ jobs:
           path: |
             /usr/local/lib/aarch64-linux-gnu/liblibgstwaylanddisplay*
             /usr/local/lib/aarch64-linux-gnu/pkgconfig/
+            /usr/local/lib/aarch64-linux-gnu/gstreamer-1.0/
             /usr/local/include/libgstwaylanddisplay/*
           if-no-files-found: error
 
@@ -82,6 +92,7 @@ jobs:
       - name: Run tests
         working-directory: ${{runner.workspace}}/build/tests
         env:
+          GST_PLUGIN_PATH: /usr/local/lib/aarch64-linux-gnu/
           RUST_BACKTRACE: FULL
           RUST_LOG: FATAL
           XDG_RUNTIME_DIR: /tmp
@@ -120,9 +131,9 @@ jobs:
         run: |
           git clone https://github.com/games-on-whales/gst-wayland-display
           cd gst-wayland-display
-          git checkout 412d26ae19cc4e729fda36ee0fb6a2dc38fec0ef
+          git checkout f31e506
           cargo install --locked cargo-c
-          cargo cinstall -p c-bindings --prefix=/usr/local --destdir=${{runner.workspace}}
+          cargo cinstall -p gst-plugin-wayland-display --prefix=/usr/local --destdir=${{runner.workspace}}
 
       - name: Archive libgstwaylanddisplay-x86_64
         uses: actions/upload-artifact@v4
@@ -131,6 +142,7 @@ jobs:
           path: |
             ${{runner.workspace}}/usr/local/lib/x86_64-linux-gnu/liblibgstwaylanddisplay*
             ${{runner.workspace}}/usr/local/lib/x86_64-linux-gnu/pkgconfig/
+            ${{runner.workspace}}/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/
             ${{runner.workspace}}/usr/local/include/libgstwaylanddisplay/*
           if-no-files-found: error
 
@@ -163,11 +175,6 @@ jobs:
           name: libgstwaylanddisplay-x86_64
           path: ${{runner.workspace}}/libgstwaylanddisplay
 
-      - name: Move the library in the right place
-        run: |
-          ls -R ${{runner.workspace}}/libgstwaylanddisplay
-          sudo cp -rn ${{runner.workspace}}/libgstwaylanddisplay/* /usr/local/
-
       - name: Prepare environment
         # ubuntu-latest breaks without libunwind-dev,
         # see: https://github.com/actions/runner-images/issues/6399#issuecomment-1286050292
@@ -176,6 +183,7 @@ jobs:
           sudo apt-get install -y libunwind-dev
           sudo apt-get install -y \
               ninja-build \
+              meson \
               libboost-locale-dev libboost-thread-dev libboost-filesystem-dev libboost-log-dev libboost-stacktrace-dev libboost-container-dev \
               libssl-dev \
               libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
@@ -188,6 +196,14 @@ jobs:
               libpci-dev \
               libunwind-dev \
               ${{ join(matrix.other_pkgs, ' ') }}
+
+      - name: Setup gst-interpipe
+        run : |
+          git clone https://github.com/games-on-whales/gst-interpipe.git
+          cd gst-interpipe
+          mkdir build
+          meson build -Denable-gtk-doc=false --prefix ${{runner.workspace}}/libgstwaylanddisplay
+          meson install -C build
 
       - name: Configure build
         working-directory: ${{runner.workspace}}
@@ -219,6 +235,7 @@ jobs:
         working-directory: ${{runner.workspace}}/build/tests
         env:
           HOST_APPS_STATE_FOLDER: ${{runner.workspace}}
+          GST_PLUGIN_PATH: ${{runner.workspace}}/libgstwaylanddisplay
         run: ./wolftests --reporter JUnit::out=${{runner.workspace}}/report.xml --reporter console::out=-::colour-mode=ansi
 
       - name: Test Report

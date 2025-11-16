@@ -18,6 +18,7 @@
 #include <rtp/udp-ping.hpp>
 #include <state/config.hpp>
 #include <state/sessions.hpp>
+#include <state/utils.hpp>
 #include <utility>
 
 namespace endpoints {
@@ -326,50 +327,14 @@ void applist(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>:
              const immer::box<state::AppState> &state) {
   log_req<SimpleWeb::HTTPS>(request);
 
-  auto base_apps = state->config->apps->load().get()                                     //
+  immer::vector<immer::box<events::App>> moonlight_apps =
+      state::get_moonlight_profile(state->config).value()->apps->load();
+  auto base_apps = moonlight_apps                                                        //
                    | ranges::views::transform([](const auto &app) { return app->base; }) //
                    | ranges::to<immer::vector<moonlight::App>>();
   auto xml = moonlight::applist(base_apps);
 
   send_xml<SimpleWeb::HTTPS>(response, SimpleWeb::StatusCode::success_ok, xml);
-}
-
-std::optional<std::ifstream> get_file_content(const std::filesystem::path &path) {
-  std::ifstream asset_file(path, std::ios::binary);
-  if (!asset_file) {
-    return {};
-  }
-  return asset_file;
-}
-
-std::optional<std::string> curl_download(const std::string &url) {
-  auto curl = curl_easy_init();
-  if (curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    /* Set custom writer (in order to receive back the response) */
-    curl_easy_setopt(curl,
-                     CURLOPT_WRITEFUNCTION,
-                     static_cast<size_t (*)(char *, size_t, size_t, void *)>(
-                         [](char *ptr, size_t size, size_t nmemb, void *read_buf) {
-                           *(static_cast<std::string *>(read_buf)) += std::string{ptr, size * nmemb};
-                           return size * nmemb;
-                         }));
-    std::string read_buf;
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buf);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1L);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-    auto res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-    if (res != CURLE_OK) {
-      logs::log(logs::warning, "Could not download asset from {}, {}", url, curl_easy_strerror(res));
-    } else {
-      return read_buf;
-    }
-  }
-  return {};
 }
 
 void appasset(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Response> &response,
@@ -384,40 +349,22 @@ void appasset(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>
     server_error<SimpleWeb::HTTPS>(response);
     return;
   }
-  auto app = state::get_app_by_id(state->config, app_id.value());
+
+  auto app = state::get_moonlight_app_by_id(state->config, app_id.value());
   if (!app || !app.value()->base.icon_png_path) {
     logs::log(logs::trace, "[HTTP] Can't find icon_png_path for app with id: {}", app_id.value());
     server_error<SimpleWeb::HTTPS>(response);
     return;
   }
+
   auto icon_path = app.value()->base.icon_png_path.value();
-
-  SimpleWeb::CaseInsensitiveMultimap asset_headers;
-  asset_headers.emplace("Content-Type", "image/png");
-  response->close_connection_after_response = true;
-
-  if (icon_path.starts_with("/")) { // Absolute path
-    auto asset_path = std::filesystem::path(icon_path);
-    if (auto file_content = get_file_content(asset_path)) {
-      response->write(SimpleWeb::StatusCode::success_ok, file_content.value(), asset_headers);
-    } else {
-      logs::log(logs::warning, "Could not open configured asset: {}", asset_path.string());
-      response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
-    }
-  } else if (icon_path.starts_with("http")) { // URL
-    if (auto file_content = curl_download(icon_path)) {
-      response->write(SimpleWeb::StatusCode::success_ok, file_content.value(), asset_headers);
-    } else {
-      response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
-    }
-  } else { // Assume it's a relative path (legacy setting)
-    auto asset_path = std::filesystem::path(state->host->local_base_state_folder) / icon_path;
-    if (auto file_content = get_file_content(asset_path)) {
-      response->write(SimpleWeb::StatusCode::success_ok, file_content.value(), asset_headers);
-    } else {
-      logs::log(logs::warning, "Could not open configured asset: {}", asset_path.string());
-      response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
-    }
+  if (auto icon = utils::get_icon(state->host->local_base_state_folder, icon_path)) {
+    SimpleWeb::CaseInsensitiveMultimap asset_headers;
+    asset_headers.emplace("Content-Type", "image/png");
+    response->write(SimpleWeb::StatusCode::success_ok, icon.value(), asset_headers);
+    response->close_connection_after_response = true;
+  } else {
+    response->write(SimpleWeb::StatusCode::client_error_not_found, "asset not found");
   }
 }
 
@@ -460,7 +407,7 @@ void launch(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::
   log_req<SimpleWeb::HTTPS>(request);
 
   SimpleWeb::CaseInsensitiveMultimap headers = request->parse_query_string();
-  auto app = state::get_app_by_id(state->config, get_header(headers, "appid").value());
+  auto app = state::get_moonlight_app_by_id(state->config, get_header(headers, "appid").value());
   if (!app) {
     logs::log(logs::warning, "[HTTP] Requested wrong app_id: not found");
     server_error<SimpleWeb::HTTPS>(response);

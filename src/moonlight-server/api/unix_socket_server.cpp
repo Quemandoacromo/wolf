@@ -18,12 +18,7 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
                                    const std::string &socket_path,
                                    immer::box<state::AppState> app_state) {
 
-  state_ = std::make_shared<UnixSocketState>(
-      UnixSocketState{.io_context = io_context,
-                      .app_state = app_state,
-                      .acceptor = {io_context, boost::asio::local::stream_protocol::endpoint(socket_path)},
-                      .http = HTTPServer<std::shared_ptr<UnixSocket>>{},
-                      .sse_keepalive_timer = boost::asio::steady_timer{io_context}});
+  state_ = std::make_shared<UnixSocketState>(io_context, app_state, socket_path);
 
   state_->http.add(HTTPMethod::GET,
                    "/api/v1/events",
@@ -94,34 +89,71 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
    * Apps API
    */
 
-  state_->http.add(HTTPMethod::GET,
-                   "/api/v1/apps",
-                   {
-                       .summary = "Get all apps",
-                       .description = "This endpoint returns a list of all apps.",
-                       .response_description = {{200, {.json_schema = rfl::json::to_schema<AppListResponse>()}}},
-                       .handler = [this](auto req, auto socket) { endpoint_Apps(req, socket); },
-                   });
-
   state_->http.add(
-      HTTPMethod::POST,
-      "/api/v1/apps/add",
+      HTTPMethod::GET,
+      "/api/v1/apps",
       {
-          .summary = "Add an app",
-          .request_description =
-              APIDescription{.json_schema = rfl::json::to_schema<rfl::Reflector<wolf::core::events::App>::ReflType>()},
-          .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
+          .summary = "Get all Moonlight apps",
+          .description = "This endpoint returns a list of all apps that will be shown in the Moonlight client.",
+          .response_description = {{200, {.json_schema = rfl::json::to_schema<AppListResponse>()}},
                                    {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
-          .handler = [this](auto req, auto socket) { endpoint_AddApp(req, socket); },
+          .handler = [this](auto req, auto socket) { endpoint_Apps(req, socket); },
       });
 
   state_->http.add(HTTPMethod::POST,
+                   "/api/v1/apps/add",
+                   {
+                       .summary = "Add a Moonlight app",
+                       .request_description =
+                           APIDescription{.json_schema = rfl::json::to_schema<rfl::Reflector<events::App>::ReflType>()},
+                       .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
+                                                {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+                       .handler = [this](auto req, auto socket) { endpoint_AddApp(req, socket); },
+                   });
+
+  state_->http.add(HTTPMethod::POST,
                    "/api/v1/apps/delete",
-                   {.summary = "Remove an app",
+                   {.summary = "Remove a Moonlight app",
                     .request_description = APIDescription{.json_schema = rfl::json::to_schema<AppDeleteRequest>()},
                     .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
                                              {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
                     .handler = [this](auto req, auto socket) { endpoint_RemoveApp(req, socket); }});
+
+  /**
+   * Profiles API
+   */
+
+  state_->http.add(HTTPMethod::GET,
+                   "/api/v1/profiles",
+                   {
+                       .summary = "Get all profiles",
+                       .description = "This endpoint returns a list of all profiles.",
+                       .response_description = {{200, {.json_schema = rfl::json::to_schema<ProfileListResponse>()}}},
+                       .handler = [this](auto req, auto socket) { endpoint_Profiles(req, socket); },
+                   });
+
+  state_->http.add(
+      HTTPMethod::POST,
+      "/api/v1/profiles/add",
+      {
+          .summary = "Create a new profile",
+          .request_description =
+              APIDescription{.json_schema = rfl::json::to_schema<rfl::Reflector<events::Profile>::ReflType>()},
+          .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
+                                   {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+          .handler = [this](auto req, auto socket) { endpoint_AddProfile(req, socket); },
+      });
+
+  state_->http.add(
+      HTTPMethod::POST,
+      "/api/v1/profiles/remove",
+      {
+          .summary = "Remove a profile",
+          .request_description = APIDescription{.json_schema = rfl::json::to_schema<ProfileRemoveRequest>()},
+          .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
+                                   {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+          .handler = [this](auto req, auto socket) { endpoint_RemoveProfile(req, socket); },
+      });
 
   /**
    * Stream session API
@@ -143,8 +175,7 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
       {
           .summary = "Create a new stream session",
           .request_description =
-              APIDescription{
-                  .json_schema = rfl::json::to_schema<rfl::Reflector<wolf::core::events::StreamSession>::ReflType>()},
+              APIDescription{.json_schema = rfl::json::to_schema<rfl::Reflector<events::StreamSession>::ReflType>()},
           .response_description = {{200, {.json_schema = rfl::json::to_schema<StreamSessionCreated>()}},
                                    {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
           .handler = [this](auto req, auto socket) { endpoint_StreamSessionAdd(req, socket); },
@@ -205,6 +236,88 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
                    });
 
   /**
+   * Lobbies API
+   */
+
+  state_->http.add(HTTPMethod::GET,
+                   "/api/v1/lobbies",
+                   {
+                       .summary = "List all lobbies",
+                       .response_description = {{200, {.json_schema = rfl::json::to_schema<LobbiesResponse>()}},
+                                                {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+                       .handler = [this](auto req, auto socket) { endpoint_Lobbies(req, socket); },
+                   });
+
+  state_->http.add(HTTPMethod::POST,
+                   "/api/v1/lobbies/create",
+                   {
+                       .summary = "Create a new lobby",
+                       .request_description = APIDescription{.json_schema = rfl::json::to_schema<CreateLobbyRequest>()},
+                       .response_description = {{200, {.json_schema = rfl::json::to_schema<LobbyCreateResponse>()}},
+                                                {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+                       .handler = [this](auto req, auto socket) { endpoint_LobbyCreate(req, socket); },
+                   });
+
+  state_->http.add(
+      HTTPMethod::POST,
+      "/api/v1/lobbies/join",
+      {
+          .summary = "Join a lobby",
+          .request_description = APIDescription{.json_schema = rfl::json::to_schema<events::JoinLobbyEvent>()},
+          .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
+                                   {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+          .handler = [this](auto req, auto socket) { endpoint_LobbyJoin(req, socket); },
+      });
+
+  state_->http.add(
+      HTTPMethod::POST,
+      "/api/v1/lobbies/leave",
+      {
+          .summary = "Leave a lobby",
+          .request_description = APIDescription{.json_schema = rfl::json::to_schema<events::LeaveLobbyEvent>()},
+          .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
+                                   {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+          .handler = [this](auto req, auto socket) { endpoint_LobbyLeave(req, socket); },
+      });
+
+  state_->http.add(
+      HTTPMethod::POST,
+      "/api/v1/lobbies/stop",
+      {
+          .summary = "Stop a lobby",
+          .request_description = APIDescription{.json_schema = rfl::json::to_schema<events::StopLobbyEvent>()},
+          .response_description = {{200, {.json_schema = rfl::json::to_schema<GenericSuccessResponse>()}},
+                                   {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+          .handler = [this](auto req, auto socket) { endpoint_LobbyStop(req, socket); },
+      });
+
+  /**
+   * Utils
+   */
+  state_->http.add(HTTPMethod::GET,
+                   "/api/v1/utils/get-icon",
+                   {.summary = "Get the icon for a given app, pass the icon_path as a query parameter ex: "
+                               "/api/v1/utils/get-icon?icon_path=/etc/wolf/icons/steam.png",
+                    .handler = [this](auto req, auto socket) { endpoint_GetIcon(req, socket); }});
+
+  state_->http.add(
+      HTTPMethod::GET,
+      "/api/v1/docker/images/inspect",
+      {.summary = "Inspect a Docker image and returns the full JSON response as is from the Docker APIs at "
+                  "/images/{image_name}/json expects image_name as a query parameter.",
+       .handler = [this](auto req, auto socket) { endpoint_DockerInspectImage(req, socket); }});
+
+  state_->http.add(
+      HTTPMethod::POST,
+      "/api/v1/docker/images/pull",
+      {.summary = "Pull a Docker image, will keep the connection open to send back progress updates. Each "
+                  "progress event will be a single line encoded as JSON.",
+       .request_description = APIDescription{.json_schema = rfl::json::to_schema<DockerPullImageRequest>()},
+       .response_description = {{200, {.json_schema = rfl::json::to_schema<DockerPullImageResponse>()}},
+                                {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
+       .handler = [this](auto req, auto socket) { endpoint_DockerPullImage(req, socket); }});
+
+  /**
    * OpenAPI schema
    */
 
@@ -235,8 +348,9 @@ void UnixSocketServer::sse_broadcast(const std::string &payload) {
                              boost::asio::buffer(payload),
                              [this, socket](const boost::system::error_code &ec, std::size_t /*length*/) {
                                if (ec) {
-                                 logs::log(logs::warning, "[API] Error sending event: {}", ec.message());
+                                 logs::log(logs::debug, "[API] Error sending event: {}", ec.message());
                                  close(*socket);
+                                 cleanup_sockets();
                                }
                              });
   }
@@ -262,11 +376,15 @@ void UnixSocketServer::send_http(std::shared_ptr<UnixSocket> socket,
                                  const std::vector<std::string_view> &http_headers,
                                  std::string_view body) {
   auto http_reply = fmt::format("HTTP/1.0 {} OK\r\n{}\r\n\r\n{}", status_code, fmt::join(http_headers, "\r\n"), body);
+  send_data(socket, http_reply);
+}
+
+void UnixSocketServer::send_data(std::shared_ptr<UnixSocket> socket, std::string_view data) {
   boost::asio::async_write(socket->socket,
-                           boost::asio::buffer(http_reply),
+                           boost::asio::buffer(data),
                            [this, socket](const boost::system::error_code &ec, std::size_t /*length*/) {
                              if (ec) {
-                               logs::log(logs::error, "[API] Error sending HTTP: {}", ec.message());
+                               logs::log(logs::error, "[API] Error sending data: {}", ec.message());
                                close(*socket);
                              }
                            });

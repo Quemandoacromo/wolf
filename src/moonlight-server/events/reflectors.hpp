@@ -1,5 +1,8 @@
 #pragma once
 
+#include "state/config.hpp"
+#include "state/data-structures.hpp"
+
 #include <events/events.hpp>
 #include <rfl.hpp>
 #include <state/serialised_config.hpp>
@@ -26,6 +29,17 @@ template <> struct Reflector<events::PairSignal> {
   }
 };
 
+template <> struct Reflector<events::Runner> {
+  using ReflType = events::RunnerTypes;
+  static ReflType from(const events::Runner &v) {
+    return v.serialize();
+  }
+
+  static std::shared_ptr<events::Runner> to(const ReflType &v, const std::shared_ptr<events::EventBusType> &ev_bus) {
+    return state::get_runner(v, ev_bus);
+  }
+};
+
 template <> struct Reflector<events::App> {
   struct ReflType {
     const std::string title;
@@ -42,7 +56,7 @@ template <> struct Reflector<events::App> {
     std::string opus_gst_pipeline;
     bool start_virtual_compositor;
     bool start_audio_server;
-    rfl::TaggedUnion<"type", AppCMD, AppDocker, AppChildSession> runner;
+    Reflector<events::Runner>::ReflType runner;
   };
 
   static ReflType from(const events::App &v) {
@@ -59,12 +73,59 @@ template <> struct Reflector<events::App> {
             .start_audio_server = v.start_audio_server,
             .runner = v.runner->serialize()};
   }
+
+  static events::App to(const ReflType &app, const std::shared_ptr<events::EventBusType> &ev_bus) {
+    auto runner = Reflector<events::Runner>::to(app.runner, ev_bus);
+    return events::App{
+        .base = {.title = app.title, .id = app.id, .support_hdr = app.support_hdr, .icon_png_path = app.icon_png_path},
+        .h264_gst_pipeline = app.h264_gst_pipeline,
+        .hevc_gst_pipeline = app.hevc_gst_pipeline,
+        .av1_gst_pipeline = app.av1_gst_pipeline,
+        .render_node = app.render_node,
+        .opus_gst_pipeline = app.opus_gst_pipeline,
+        .start_virtual_compositor = app.start_virtual_compositor,
+        .runner = runner,
+    };
+  }
+};
+
+template <> struct Reflector<events::Profile> {
+  struct ReflType {
+    std::string name;
+    std::string id;
+    std::string icon_png_path;
+    std::optional<std::vector<short>> pin;
+    std::vector<Reflector<events::App>::ReflType> apps;
+  };
+
+  static ReflType from(const events::Profile &v) {
+    immer::vector<immer::box<events::App>> apps_boxed = v.apps->load();
+    std::vector<Reflector<events::App>::ReflType> apps;
+    for (const auto &app : apps_boxed) {
+      apps.push_back(Reflector<events::App>::from(*app));
+    }
+    return {.name = v.name, .id = v.id, .icon_png_path = v.icon_png_path, .pin = v.pin, .apps = apps};
+  }
+
+  static events::Profile to(const ReflType &v, const std::shared_ptr<events::EventBusType> &ev_bus) {
+    auto parsed_apps = v.apps | //
+                       ranges::views::transform([ev_bus](const auto &app) {
+                         return immer::box<events::App>(Reflector<events::App>::to(app, ev_bus));
+                       }) |
+                       ranges::to<immer::vector<immer::box<events::App>>>();
+
+    return {.id = v.id,
+            .name = v.name,
+            .icon_png_path = v.icon_png_path,
+            .pin = v.pin,
+            .apps = std::make_shared<immer::atom<immer::vector<immer::box<events::App>>>>(parsed_apps)};
+  }
 };
 
 template <> struct Reflector<events::StartRunner> {
   struct ReflType {
     bool stop_stream_when_over;
-    rfl::TaggedUnion<"type", AppCMD, AppDocker, AppChildSession> runner;
+    events::RunnerTypes runner;
     std::string session_id;
   };
 
@@ -107,6 +168,48 @@ template <> struct Reflector<events::StreamSession> {
             .video_refresh_rate = v.display_mode.refreshRate,
             .audio_channel_count = v.audio_channel_count,
             .client_settings = v.client_settings};
+  }
+};
+
+template <> struct Reflector<events::Lobby> {
+  struct ReflType {
+    std::string id;
+    std::string name;
+    std::optional<std::string> icon_png_path;
+    bool multi_user;
+    std::string started_by_profile_id;
+    bool pin_required;
+    bool stop_when_everyone_leaves;
+    Reflector<events::Runner>::ReflType runner;
+    std::vector<std::string> connected_sessions;
+  };
+
+  static ReflType from(const events::Lobby &v) {
+    immer::vector<immer::box<std::string>> connected_sessions = v.connected_sessions->load();
+    return {.id = v.id,
+            .name = v.name,
+            .icon_png_path = v.icon_png_path,
+            .multi_user = v.multi_user,
+            .started_by_profile_id = v.started_by_profile_id,
+            .pin_required = v.pin.has_value(),
+            .stop_when_everyone_leaves = v.stop_when_everyone_leaves,
+            .runner = v.runner->serialize(),
+            .connected_sessions = connected_sessions |
+                                  ranges::views::transform([](const immer::box<std::string> &v) { return *v; }) |
+                                  ranges::to_vector};
+  }
+};
+
+/**
+ * Unsigned long is used by Moonlight as the session ID but JSON doesn't support unsigned integers.
+ */
+template <> struct Reflector<std::size_t> {
+  using ReflType = std::string;
+  static ReflType from(const std::size_t &v) {
+    return std::to_string(v);
+  }
+  static std::size_t to(const ReflType &v) {
+    return std::stoull(v);
   }
 };
 

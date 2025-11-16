@@ -1,8 +1,10 @@
 #include <api/api.hpp>
 #include <control/input_handler.hpp>
+#include <core/docker.hpp>
 #include <rtp/udp-ping.hpp>
 #include <state/config.hpp>
 #include <state/sessions.hpp>
+#include <state/utils.hpp>
 
 namespace wolf::api {
 
@@ -12,7 +14,7 @@ void UnixSocketServer::endpoint_Events(const HTTPRequest &req, std::shared_ptr<U
   send_http(socket,
             200,
             {{"Content-Type: text/event-stream"}, {"Connection: keep-alive"}, {"Cache-Control: no-cache"}},
-            ""); // Inform clients this is going to be SSE
+            ""); // Inform clients this is going to be SS
 }
 
 void UnixSocketServer::endpoint_PendingPairRequest(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
@@ -82,8 +84,13 @@ void UnixSocketServer::endpoint_UnpairClient(const HTTPRequest &req, std::shared
 
 void UnixSocketServer::endpoint_Apps(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto res = AppListResponse{.success = true};
-  auto apps = state_->app_state->config->apps->load();
-  for (const auto &app : apps.get()) {
+  auto moonlight_profile = state::get_moonlight_profile(state_->app_state->config);
+  if (!moonlight_profile) {
+    send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Moonlight profile not found"}));
+    return;
+  }
+  immer::vector<immer::box<events::App>> app_list = moonlight_profile.value()->apps->load();
+  for (const immer::box<events::App> &app : app_list) {
     res.apps.push_back(rfl::Reflector<events::App>::from(app));
   }
   send_http(socket, 200, rfl::json::write(res));
@@ -92,23 +99,21 @@ void UnixSocketServer::endpoint_Apps(const HTTPRequest &req, std::shared_ptr<Uni
 void UnixSocketServer::endpoint_AddApp(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto app = rfl::json::read<rfl::Reflector<events::App>::ReflType>(req.body);
   if (app) {
-    state_->app_state->config->apps->update([app = app.value(), this](auto &apps) {
-      auto runner =
-          state::get_runner(app.runner, this->state_->app_state->event_bus, this->state_->app_state->running_sessions);
-      return apps.push_back(events::App{
-          .base =
-              {.title = app.title, .id = app.id, .support_hdr = app.support_hdr, .icon_png_path = app.icon_png_path},
-          .h264_gst_pipeline = app.h264_gst_pipeline,
-          .hevc_gst_pipeline = app.hevc_gst_pipeline,
-          .av1_gst_pipeline = app.av1_gst_pipeline,
-          .render_node = app.render_node,
-          .opus_gst_pipeline = app.opus_gst_pipeline,
-          .start_virtual_compositor = app.start_virtual_compositor,
-          .runner = runner,
-      });
-    });
-    auto res = GenericSuccessResponse{.success = true};
-    send_http(socket, 200, rfl::json::write(res));
+    auto profiles = state_->app_state->config->profiles->load().get();
+    state::update_profiles(
+        state_->app_state->config,
+        profiles | //
+            ranges::views::transform([app = app.value(), this](const immer::box<events::Profile> &profile) {
+              if (profile->id == events::MOONLIGHT_PROFILE_ID) {
+                profile->apps->update([app, this](auto &apps) {
+                  return apps.push_back(rfl::Reflector<events::App>::to(app, this->state_->app_state->event_bus));
+                });
+              }
+              return profile;
+            }) |
+            ranges::to<state::ProfilesList>());
+
+    send_http(socket, 200, rfl::json::write(GenericSuccessResponse{.success = true}));
   } else {
     logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, app.error().what());
     auto res = GenericErrorResponse{.error = app.error().what()};
@@ -119,16 +124,76 @@ void UnixSocketServer::endpoint_AddApp(const HTTPRequest &req, std::shared_ptr<U
 void UnixSocketServer::endpoint_RemoveApp(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto app = rfl::json::read<AppDeleteRequest>(req.body);
   if (app) {
-    state_->app_state->config->apps->update([app = app.value()](auto &apps) {
-      return apps |                                                                                             //
-             ranges::views::filter([&app](const immer::box<events::App> &a) { return a->base.id != app.id; }) | //
-             ranges::to<immer::vector<immer::box<events::App>>>();
-    });
-    auto res = GenericSuccessResponse{.success = true};
-    send_http(socket, 200, rfl::json::write(res));
+    auto profiles = state_->app_state->config->profiles->load().get();
+    state::update_profiles(
+        state_->app_state->config,
+        profiles | //
+            ranges::views::transform([app = app.value(), this](const immer::box<events::Profile> &profile) {
+              if (profile->id == events::MOONLIGHT_PROFILE_ID) {
+                profile->apps->update([app, this](auto &apps) {
+                  return apps | //
+                         ranges::views::filter(
+                             [&app](const immer::box<events::App> &a) { return a->base.id != app.id; }) | //
+                         ranges::to<immer::vector<immer::box<events::App>>>();
+                });
+              }
+              return profile;
+            }) |
+            ranges::to<state::ProfilesList>());
+
+    send_http(socket, 200, rfl::json::write(GenericSuccessResponse{.success = true}));
   } else {
     logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, app.error().what());
     auto res = GenericErrorResponse{.error = app.error().what()};
+    send_http(socket, 500, rfl::json::write(res));
+  }
+}
+
+void UnixSocketServer::endpoint_Profiles(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto profiles = state_->app_state->config->profiles->load().get();
+  auto res = ProfileListResponse{.success = true,
+                                 .profiles = profiles | //
+                                             ranges::views::filter([](const immer::box<events::Profile> &p) {
+                                               return p->id != events::MOONLIGHT_PROFILE_ID;
+                                             }) |                                                              //
+                                             ranges::views::transform(rfl::Reflector<events::Profile>::from) | //
+                                             ranges::to_vector};
+  send_http(socket, 200, rfl::json::write(res));
+}
+
+void UnixSocketServer::endpoint_AddProfile(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto profile_req = rfl::json::read<rfl::Reflector<events::Profile>::ReflType>(req.body);
+  if (profile_req) {
+    auto p = profile_req.value();
+
+    auto profiles = state_->app_state->config->profiles->load().get();
+    state::update_profiles(
+        state_->app_state->config,
+        profiles.push_back(rfl::Reflector<events::Profile>::to(p, this->state_->app_state->event_bus)));
+    send_http(socket, 200, rfl::json::write(GenericSuccessResponse{.success = true}));
+  } else {
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, profile_req.error().what());
+    auto res = GenericErrorResponse{.error = profile_req.error().what()};
+    send_http(socket, 500, rfl::json::write(res));
+  }
+}
+
+void UnixSocketServer::endpoint_RemoveProfile(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto profile_req = rfl::json::read<ProfileRemoveRequest>(req.body);
+  if (profile_req) {
+    auto p = profile_req.value();
+
+    auto profiles = state_->app_state->config->profiles->load().get();
+    state::update_profiles(state_->app_state->config,
+                           profiles | //
+                               ranges::views::remove_if([&p](const immer::box<events::Profile> &profile) {
+                                 return profile.get().id == p.id;
+                               }) | //
+                               ranges::to<state::ProfilesList>());
+    send_http(socket, 200, rfl::json::write(GenericSuccessResponse{.success = true}));
+  } else {
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, profile_req.error().what());
+    auto res = GenericErrorResponse{.error = profile_req.error().what()};
     send_http(socket, 500, rfl::json::write(res));
   }
 }
@@ -146,7 +211,7 @@ void UnixSocketServer::endpoint_StreamSessionAdd(const HTTPRequest &req, std::sh
   auto session = rfl::json::read<rfl::Reflector<events::StreamSession>::ReflType>(req.body);
   if (session) {
     auto ss = session.value();
-    auto app = state::get_app_by_id(this->state_->app_state->config, ss.app_id);
+    auto app = state::get_moonlight_app_by_id(this->state_->app_state->config, ss.app_id);
     if (!app) {
       logs::log(logs::warning, "[API] Invalid app_id: {}", ss.app_id);
       auto res = GenericErrorResponse{.error = "Invalid app_id"};
@@ -198,6 +263,9 @@ void UnixSocketServer::endpoint_StreamSessionStart(const HTTPRequest &req, std::
     if (auto session = state::get_session_by_id(sessions.get(), session_id)) {
       auto video_session = start_req.value().video_session;
       video_session.session_id = session_id; // Can't be JSON encoded
+      if (video_session.render_node.empty()) {
+        video_session.render_node = session->app->render_node;
+      }
       state_->app_state->event_bus->fire_event(immer::box<events::VideoSession>(video_session));
 
       auto audio_session = start_req.value().audio_session;
@@ -285,6 +353,133 @@ void UnixSocketServer::endpoint_StreamSessionHandleInput(const HTTPRequest &req,
   }
 }
 
+void UnixSocketServer::endpoint_Lobbies(const wolf::api::HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  immer::vector<events::Lobby> lobbies = state_->app_state->lobbies->load();
+  auto res = LobbiesResponse{.lobbies = lobbies | //
+                                        ranges::views::transform([](const events::Lobby &lobby) {
+                                          return rfl::Reflector<events::Lobby>::from(lobby);
+                                        }) | //
+                                        ranges::to_vector};
+  send_http(socket, 200, rfl::json::write(res));
+}
+
+void UnixSocketServer::endpoint_LobbyCreate(const wolf::api::HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto event = rfl::json::read<CreateLobbyRequest>(req.body);
+  if (event) {
+    auto default_client_settings = state::ClientSettings{};
+    auto client_settings = event.value().client_settings.value().value_or(PartialClientSettings{});
+    auto lobby_id = state::gen_uuid();
+    auto create_lobby_ev = events::CreateLobbyEvent{
+        .id = lobby_id,
+        .profile_id = event.value().profile_id.get(),
+        .name = event.value().name,
+        .icon_png_path = event.value().icon_png_path,
+        .pin = event.value().pin.get(),
+        .multi_user = event.value().multi_user,
+        .stop_when_everyone_leaves = event.value().stop_when_everyone_leaves,
+        .video_settings = event.value().video_settings,
+        .audio_settings = event.value().audio_settings,
+        .client_settings =
+            state::ClientSettings{
+                .run_uid = client_settings.run_uid.value_or(default_client_settings.run_uid),
+                .run_gid = client_settings.run_gid.value_or(default_client_settings.run_gid),
+                .controllers_override =
+                    client_settings.controllers_override.value_or(default_client_settings.controllers_override),
+                .mouse_acceleration =
+                    client_settings.mouse_acceleration.value_or(default_client_settings.mouse_acceleration),
+                .v_scroll_acceleration =
+                    client_settings.v_scroll_acceleration.value_or(default_client_settings.v_scroll_acceleration),
+                .h_scroll_acceleration =
+                    client_settings.h_scroll_acceleration.value_or(default_client_settings.h_scroll_acceleration)},
+        .runner_state_folder = event.value().runner_state_folder,
+        .runner = state::get_runner(event.value().runner, this->state_->app_state->event_bus)};
+    // Fire the event
+    state_->app_state->event_bus->fire_event(immer::box<events::CreateLobbyEvent>(create_lobby_ev));
+
+    auto setup_over_future = create_lobby_ev.on_setup_over.get()->get_future();
+    auto result = setup_over_future.wait_for(std::chrono::seconds(20));
+    if (result == std::future_status::timeout) {
+      logs::log(logs::warning, "[API] Lobby setup timed out");
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Lobby setup timed out"}));
+    } else {
+      auto res = LobbyCreateResponse{.lobby_id = lobby_id};
+      send_http(socket, 200, rfl::json::write(res));
+    }
+  } else {
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, event.error().what());
+    send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = event.error().what()}));
+  }
+}
+
+std::optional<std::string /* Error message */> check_lobby_pin(const immer::vector<events::Lobby> &lobbies,
+                                                               std::string_view lobby_id,
+                                                               const std::optional<std::vector<short>> &pin) {
+  auto lobby = state::get_lobby_by_id(lobbies, lobby_id);
+  if (!lobby) {
+    return "Invalid lobby ID";
+  }
+  if (lobby->pin != pin) {
+    return "Invalid PIN";
+  }
+  return std::nullopt;
+}
+
+void UnixSocketServer::endpoint_LobbyJoin(const wolf::api::HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto event = rfl::json::read<events::JoinLobbyEvent>(req.body);
+  if (event) {
+    auto lobbies = this->state_->app_state->lobbies->load();
+    if (auto err = check_lobby_pin(lobbies.get(), event->lobby_id, event->pin)) {
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = err.value()}));
+      return;
+    }
+    auto lobby_ev = event.value();
+    lobby_ev.error_message = std::make_shared<std::promise<std::string>>();
+    state_->app_state->event_bus->fire_event(immer::box<events::JoinLobbyEvent>(lobby_ev));
+
+    auto error_message_fut = lobby_ev.error_message.get()->get_future();
+    auto future_status = error_message_fut.wait_for(std::chrono::seconds(2));
+    if (future_status == std::future_status::timeout) {
+      logs::log(logs::warning, "[API] Lobby join timed out");
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Lobby join timed out"}));
+    } else if (auto error_message = error_message_fut.get(); !error_message.empty()) {
+      logs::log(logs::warning, "[API] Lobby join failed: {}", error_message);
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = utils::to_string(error_message)}));
+    } else {
+      send_http(socket, 200, rfl::json::write(GenericSuccessResponse{}));
+    }
+  } else {
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, event.error().what());
+    send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = event.error().what()}));
+  }
+}
+
+void UnixSocketServer::endpoint_LobbyLeave(const wolf::api::HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto event = rfl::json::read<events::LeaveLobbyEvent>(req.body);
+  if (event) {
+    state_->app_state->event_bus->fire_event(immer::box<events::LeaveLobbyEvent>(event.value()));
+    send_http(socket, 200, rfl::json::write(GenericSuccessResponse{}));
+  } else {
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, event.error().what());
+    send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = event.error().what()}));
+  }
+}
+
+void UnixSocketServer::endpoint_LobbyStop(const wolf::api::HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto event = rfl::json::read<events::StopLobbyEvent>(req.body);
+  if (event) {
+    auto lobbies = this->state_->app_state->lobbies->load();
+    if (auto err = check_lobby_pin(lobbies.get(), event->lobby_id, event->pin)) {
+      send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = err.value()}));
+      return;
+    }
+    state_->app_state->event_bus->fire_event(immer::box<events::StopLobbyEvent>(event.value()));
+    send_http(socket, 200, rfl::json::write(GenericSuccessResponse{}));
+  } else {
+    logs::log(logs::warning, "[API] Invalid event: {} - {}", req.body, event.error().what());
+    send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = event.error().what()}));
+  }
+}
+
 void UnixSocketServer::endpoint_RunnerStart(const wolf::api::HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto event = rfl::json::read<RunnerStartRequest>(req.body);
   if (event) {
@@ -297,9 +492,7 @@ void UnixSocketServer::endpoint_RunnerStart(const wolf::api::HTTPRequest &req, s
       return;
     }
 
-    auto runner = state::get_runner(event.value().runner,
-                                    this->state_->app_state->event_bus,
-                                    this->state_->app_state->running_sessions);
+    auto runner = state::get_runner(event.value().runner, this->state_->app_state->event_bus);
     state_->app_state->event_bus->fire_event(immer::box<events::StartRunner>(
         events::StartRunner{.stop_stream_when_over = event.value().stop_stream_when_over,
                             .runner = runner,
@@ -346,6 +539,79 @@ void UnixSocketServer::endpoint_UpdateClientSettings(const HTTPRequest &req, std
 
   auto res = GenericSuccessResponse{.success = true};
   send_http(socket, 200, rfl::json::write(res));
+}
+
+void UnixSocketServer::endpoint_GetIcon(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto icon_path = utils::split(req.query_string, '=');
+  if (icon_path.size() != 2 || icon_path[0] != "icon_path") {
+    auto res = GenericErrorResponse{.error = "Invalid request format, expects 'icon_path' as a query parameter"};
+    send_http(socket, 400, rfl::json::write(res));
+    return;
+  }
+  // TODO: implement coroutines for CURL
+  std::thread([this, socket, icon_path = utils::to_string(icon_path[1])]() {
+    if (auto icon = utils::get_icon(this->state_->app_state->host->local_base_state_folder, icon_path)) {
+      send_http(socket,
+                200,
+                {"Content-Length: " + std::to_string(icon->size()), "Content-Type: image/png"},
+                icon.value());
+    } else {
+      auto res = GenericErrorResponse{.error = "Icon not found"};
+      send_http(socket, 404, rfl::json::write(res));
+    }
+  }).detach();
+}
+
+void UnixSocketServer::endpoint_DockerInspectImage(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto image_name = utils::split(req.query_string, '=');
+  if (image_name.size() != 2 || image_name[0] != "image_name") {
+    auto res = GenericErrorResponse{.error = "Invalid request format, expects 'image_name' as a query parameter"};
+    send_http(socket, 400, rfl::json::write(res));
+    return;
+  }
+
+  docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
+  if (auto response = docker_api.inspect_image(image_name[1])) {
+    send_http(socket, 200, response.value());
+  } else {
+    auto res = GenericErrorResponse{.error = "Image not found"};
+    send_http(socket, 404, rfl::json::write(res));
+  }
+}
+
+void UnixSocketServer::endpoint_DockerPullImage(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
+  auto input_payload = rfl::json::read<DockerPullImageRequest>(req.body);
+  if (input_payload) {
+    // TODO: implement coroutines for CURL
+    std::thread([this, socket, image = input_payload.value().image_name]() {
+      docker::DockerAPI docker_api(utils::get_env("WOLF_DOCKER_SOCKET", "/var/run/docker.sock"));
+      bool first_send = true;
+      broadcast_event("DockerPullImageStartEvent",
+                      rfl::json::write(events::DockerPullImageStartEvent{.image_name = image}));
+      if (docker_api.pull_image(image,
+                                {},
+                                [this, &first_send, socket](const docker::DockerAPI::DockerProgressEvent &progress_ev) {
+                                  if (first_send) {
+                                    send_data(socket, "HTTP/1.0 200 OK\r\n\r\n");
+                                    first_send = false;
+                                  }
+                                  auto serialized_ev = rfl::json::write(progress_ev) + "\r\n";
+                                  send_data(socket, serialized_ev);
+                                })) {
+        if (first_send) {
+          send_data(socket, "HTTP/1.0 200 OK\r\n\r\n");
+        }
+        auto final_result = rfl::json::write(GenericSuccessResponse{.success = true});
+        send_data(socket, final_result + "\r\n");
+        broadcast_event("DockerPullImageEndEvent",
+                        rfl::json::write(events::DockerPullImageEndEvent{.image_name = image, .success = true}));
+      } else {
+        send_http(socket, 500, rfl::json::write(GenericErrorResponse{.error = "Failed to pull image"}));
+        broadcast_event("DockerPullImageEndEvent",
+                        rfl::json::write(events::DockerPullImageEndEvent{.image_name = image, .success = false}));
+      }
+    }).detach();
+  }
 }
 
 } // namespace wolf::api

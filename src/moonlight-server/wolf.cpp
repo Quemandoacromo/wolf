@@ -14,9 +14,9 @@
 #include <mdns_cpp/logger.hpp>
 #include <mdns_cpp/mdns.hpp>
 #include <memory>
-#include <platforms/hw.hpp>
 #include <rest/rest.hpp>
 #include <rtsp/net.hpp>
+#include <sessions/handlers.hpp>
 #include <state/config.hpp>
 #include <streaming/streaming.hpp>
 #include <vector>
@@ -102,21 +102,18 @@ auto initialize(std::string_view config_file, std::string_view pkey_filename, st
       .pairing_cache = std::make_shared<immer::atom<immer::map<std::string, state::PairCache>>>(),
       .pairing_atom = std::make_shared<immer::atom<immer::map<std::string, immer::box<events::PairSignal>>>>(),
       .event_bus = event_bus,
+      .lobbies = std::make_shared<immer::atom<immer::vector<events::Lobby>>>(),
       .running_sessions = running_sessions};
   return immer::box<state::AppState>(state);
 }
-
-struct AudioServer {
-  std::shared_ptr<audio::Server> server;
-  std::optional<docker::Container> container = {};
-};
 
 /**
  * We first try to connect to a running PulseAudio server
  * if that fails, we run our own PulseAudio container and connect to it
  * if that fails, we can't return an AudioServer, hence the optional!
  */
-std::optional<AudioServer> setup_audio_server(const std::string &host_runtime_dir, const std::string &runtime_dir) {
+std::optional<sessions::AudioServer> setup_audio_server(const std::string &host_runtime_dir,
+                                                        const std::string &runtime_dir) {
   auto audio_server = audio::connect();
   if (audio::connected(audio_server)) {
     return {{.server = audio_server}};
@@ -126,8 +123,12 @@ std::optional<AudioServer> setup_audio_server(const std::string &host_runtime_di
     auto pulse_socket = fmt::format("{}/pulse-socket", runtime_dir);
 
     /* Cleanup old leftovers, Pulse will fail to start otherwise */
-    std::filesystem::remove(pulse_socket);
-    std::filesystem::remove_all(fmt::format("{}/pulse", runtime_dir));
+    try {
+      std::filesystem::remove(pulse_socket);
+      std::filesystem::remove_all(fmt::format("{}/pulse", runtime_dir));
+    } catch (const std::filesystem::filesystem_error &e) {
+      logs::log(logs::warning, "Failed to remove old PulseAudio socket: {}", e.what());
+    }
 
     auto container = docker_api.create(
         docker::Container{
@@ -157,302 +158,6 @@ std::optional<AudioServer> setup_audio_server(const std::string &host_runtime_di
   return {};
 }
 
-using session_devices = immer::map<std::size_t /* session_id */, std::shared_ptr<events::devices_atom_queue>>;
-
-/**
- * Will stop the execution until an event of type RTPPingType is triggered
- * and the signature is matching the input `sess`.
- * Returns the RTPPingType event
- */
-template <typename RTPPingType>
-immer::box<RTPPingType> wait_for_ping(std::shared_ptr<events::EventBusType> ev_bus, const auto &sess) {
-  auto ping_promise = std::make_shared<std::promise<RTPPingType>>();
-  auto ping_future = ping_promise->get_future();
-
-  auto handler =
-      ev_bus->register_handler<immer::box<RTPPingType>>([sess, ping_promise](const immer::box<RTPPingType> &ping_ev) {
-        // Check if this ping is for our session
-        if (sess->rtp_secret_payload == ping_ev->payload || // Secret payload matching
-            (!ping_ev->payload.has_value() && ping_ev->client_ip == sess->client_ip &&
-             ping_ev->client_port == sess->port)) { // Legacy IP+port matching when no payload has been passed
-          // Resolve the promise with the ping event data
-          ping_promise->set_value(*ping_ev);
-        }
-      });
-
-  // Wait for the promise to be fulfilled
-  auto ping_ev = ping_future.get();
-
-  // Unregister the handler since we only need it once
-  handler.unregister();
-
-  return ping_ev;
-}
-
-auto setup_sessions_handlers(const immer::box<state::AppState> &app_state,
-                             const std::string &runtime_dir,
-                             const std::optional<AudioServer> &audio_server) {
-  immer::vector_transient<immer::box<events::EventBusHandlers>> handlers;
-
-  /*
-   * A queue of devices that are waiting to be plugged, mapped by session_id
-   * This way we can accumulate devices here until the docker container is up and running
-   */
-  auto plugged_devices_queue = std::make_shared<immer::atom<session_devices>>();
-
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::StopStreamEvent>>(
-      [&app_state, plugged_devices_queue](const immer::box<events::StopStreamEvent> &ev) {
-        // Remove session from app state so that HTTP/S applist gets updated
-        // This should effectively destroy the virtual Wayland session since it holds the last reference
-        app_state->running_sessions->update([&ev](const immer::vector<events::StreamSession> &ses_v) {
-          return state::remove_session(ses_v, {.session_id = ev->session_id});
-        });
-
-        plugged_devices_queue->update([=](const auto map) { return map.erase(ev->session_id); });
-      }));
-
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::PlugDeviceEvent>>(
-      [plugged_devices_queue](const immer::box<events::PlugDeviceEvent> &hotplug_ev) {
-        logs::log(logs::debug, "{} received hot-plug device event", hotplug_ev->session_id);
-
-        if (auto session_devices_queue = plugged_devices_queue->load()->find(hotplug_ev->session_id)) {
-          session_devices_queue->get()->push(hotplug_ev);
-        } else {
-          logs::log(logs::warning, "Unable to find plugged_devices_queue for session {}", hotplug_ev->session_id);
-        }
-      }));
-
-  // Run process and our custom wayland as soon as a new StreamSession is created
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::StreamSession>>(
-      [=](const immer::box<events::StreamSession> &session) {
-        /* Initialise plugged device queue */
-        auto devices_q = std::make_shared<events::devices_atom_queue>();
-        plugged_devices_queue->update(
-            [=](const session_devices map) { return map.set(session->session_id, devices_q); });
-
-        std::shared_ptr<boost::promise<streaming::WaylandDisplayReady>> on_ready =
-            std::make_shared<boost::promise<streaming::WaylandDisplayReady>>();
-
-        if (session->app->start_virtual_compositor) {
-          logs::log(logs::debug, "[STREAM_SESSION] Create wayland compositor");
-
-          // Start Gstreamer producer pipeline
-          std::thread([session, on_ready]() {
-            streaming::start_video_producer(session->session_id,
-                                            session->app->video_producer_buffer_caps,
-                                            session->app->render_node,
-                                            {.width = session->display_mode.width,
-                                             .height = session->display_mode.height,
-                                             .refreshRate = session->display_mode.refreshRate},
-                                            on_ready,
-                                            session->event_bus);
-          }).detach();
-        } else {
-          // Create virtual devices
-          auto mouse = input::Mouse::create();
-          if (!mouse) {
-            logs::log(logs::error, "Failed to create mouse: {}", mouse.getErrorMessage());
-          } else {
-            auto mouse_ptr = input::Mouse(std::move(*mouse));
-            devices_q->push(immer::box<events::PlugDeviceEvent>(
-                events::PlugDeviceEvent{.session_id = session->session_id,
-                                        .udev_events = mouse_ptr.get_udev_events(),
-                                        .udev_hw_db_entries = mouse_ptr.get_udev_hw_db_entries()}));
-            session->mouse->emplace(std::move(mouse_ptr));
-          }
-
-          auto keyboard = input::Keyboard::create();
-          if (!keyboard) {
-            logs::log(logs::error, "Failed to create keyboard: {}", keyboard.getErrorMessage());
-          } else {
-            auto keyboard_ptr = input::Keyboard(std::move(*keyboard));
-            devices_q->push(immer::box<events::PlugDeviceEvent>(
-                events::PlugDeviceEvent{.session_id = session->session_id,
-                                        .udev_events = keyboard_ptr.get_udev_events(),
-                                        .udev_hw_db_entries = keyboard_ptr.get_udev_hw_db_entries()}));
-            session->keyboard->emplace(std::move(keyboard_ptr));
-          }
-          on_ready->set_value({});
-        }
-
-        /* Create audio virtual sink */
-        logs::log(logs::debug, "[STREAM_SESSION] Create virtual audio sink");
-        auto pulse_sink_name = fmt::format("virtual_sink_{}", session->session_id);
-        std::shared_ptr<audio::VSink> v_device;
-        if (session->app->start_audio_server && audio_server && audio_server->server) {
-          v_device = audio::create_virtual_sink(
-              audio_server->server,
-              audio::AudioDevice{.sink_name = pulse_sink_name,
-                                 .mode = state::get_audio_mode(session->audio_channel_count, true)});
-          session->audio_sink->store(v_device);
-
-          std::thread([session, audio_server = audio_server->server]() {
-            auto sink_name = fmt::format("virtual_sink_{}.monitor", session->session_id);
-            streaming::start_audio_producer(session->session_id,
-                                            session->event_bus,
-                                            session->audio_channel_count,
-                                            sink_name,
-                                            audio::get_server_name(audio_server));
-          }).detach();
-        }
-
-        // TODO: timeout? What if the wayland display is never ready?
-        auto w_display_ready = on_ready->get_future().then([session](auto fut) {
-          streaming::WaylandDisplayReady ready = fut.get();
-
-          auto wl_state = virtual_display::create_wayland_display(ready.wayland_plugin, ready.wayland_socket_name);
-          // Set the wayland display
-          session->wayland_display->store(wl_state);
-
-          // Set virtual devices
-          session->mouse->emplace(virtual_display::WaylandMouse(wl_state));
-          session->keyboard->emplace(virtual_display::WaylandKeyboard(wl_state));
-          session->touch_screen->emplace(virtual_display::WaylandTouchScreen(wl_state));
-
-          session->event_bus->fire_event(immer::box<events::StartRunner>(
-              events::StartRunner{.stop_stream_when_over = true,
-                                  .runner = session->app->runner,
-                                  .stream_session = std::make_shared<events::StreamSession>(*session)}));
-        });
-      }));
-
-  /* Start runner */
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::StartRunner>>(
-      [=](const immer::box<events::StartRunner> &run_session) {
-        // Start selected app on a separate thread
-        std::thread([=]() {
-          auto session = run_session->stream_session;
-
-          /* Setup devices paths */
-          auto all_devices = immer::array_transient<std::string>();
-
-          /* Setup mounted paths */
-          immer::array_transient<std::pair<std::string, std::string>> mounted_paths;
-
-          /* Setup environment paths */
-          immer::map_transient<std::string, std::string> full_env;
-          full_env.set("XDG_RUNTIME_DIR", runtime_dir);
-
-          auto pulse_sink_name = fmt::format("virtual_sink_{}", session->session_id);
-          auto audio_server_name = audio_server ? audio::get_server_name(audio_server->server) : "";
-          // TODO: properly separate XDG_RUNTIME_DIR from <pulse socket path>
-          // for example on my dev machine it's ${XDG_RUNTIME_DIR}/pulse/native
-          // but we know that on our images it's ${XDG_RUNTIME_DIR}/pulse-socket so this should be fine..
-          auto audio_server_on_host = std::filesystem::path(app_state->host->host_xdg_runtime_dir) /
-                                      std::filesystem::path(audio_server_name).filename();
-          full_env.set("PULSE_SINK", pulse_sink_name);
-          full_env.set("PULSE_SOURCE", pulse_sink_name + ".monitor");
-          full_env.set("PULSE_SERVER", audio_server_name);
-          mounted_paths.push_back({audio_server_on_host, audio_server_name});
-
-          full_env.set("GAMESCOPE_WIDTH", std::to_string(session->display_mode.width));
-          full_env.set("GAMESCOPE_HEIGHT", std::to_string(session->display_mode.height));
-          full_env.set("GAMESCOPE_REFRESH", std::to_string(session->display_mode.refreshRate));
-
-          if (auto w_display = run_session->stream_session->wayland_display.get()) {
-            auto socket_name = virtual_display::get_wayland_socket_name(*w_display->load().get());
-            auto local_wayland_socket = std::filesystem::path(runtime_dir) / socket_name;
-            auto host_wayland_socket = std::filesystem::path(app_state->host->host_xdg_runtime_dir) / socket_name;
-            mounted_paths.push_back({host_wayland_socket, local_wayland_socket});
-            full_env.set("WAYLAND_DISPLAY", socket_name);
-          }
-
-          /* Adding custom state folder */
-          mounted_paths.push_back({session->app_host_state_folder, "/home/retro"});
-
-          /* GPU specific adjustments */
-          auto render_node = session->app->render_node;
-          auto additional_devices = linked_devices(render_node);
-          std::copy(additional_devices.begin(), additional_devices.end(), std::back_inserter(all_devices));
-
-          auto gpu_vendor = get_vendor(render_node);
-          if (gpu_vendor == NVIDIA) {
-            if (auto driver_volume = utils::get_env("NVIDIA_DRIVER_VOLUME_NAME")) {
-              logs::log(logs::info, "Mounting nvidia driver {}:/usr/nvidia", driver_volume);
-              mounted_paths.push_back({driver_volume, "/usr/nvidia"});
-            }
-          } else if (gpu_vendor == INTEL) {
-            full_env.set("INTEL_DEBUG", "norbc"); // see: https://github.com/games-on-whales/wolf/issues/50
-          }
-
-          full_env.set("PUID", std::to_string(session->client_settings->run_uid));
-          full_env.set("PGID", std::to_string(session->client_settings->run_gid));
-
-          // Add fake-udev and udev mounts
-          mounted_paths.push_back(
-              {std::filesystem::path(app_state->host->host_base_state_folder) / "fake-udev", "/usr/bin/fake-udev"});
-          mounted_paths.push_back({std::filesystem::path(session->app_host_state_folder) / "udev", "/run/udev/"});
-
-          auto devices_q = plugged_devices_queue->load()->find(session->session_id);
-          if (!devices_q) {
-            logs::log(logs::warning, "No devices queue found for session {}", session->session_id);
-            return;
-          } else {
-            /* Finally run the app, this will stop here until over */
-            run_session->runner->run(session->session_id,
-                                     session->app_local_state_folder,
-                                     *devices_q,
-                                     all_devices.persistent(),
-                                     mounted_paths.persistent(),
-                                     full_env.persistent(),
-                                     render_node);
-          }
-
-          if (run_session->stop_stream_when_over) {
-            /* App exited, cleanup */
-            logs::log(logs::debug, "[STREAM_SESSION] Remove virtual audio sink");
-            if (session->app->start_audio_server) {
-              audio::delete_virtual_sink(audio_server->server, session->audio_sink->load());
-            }
-
-            session->wayland_display->store(nullptr);
-
-            app_state->event_bus->fire_event(
-                immer::box<events::StopStreamEvent>(events::StopStreamEvent{.session_id = session->session_id}));
-          }
-        }).detach();
-      }));
-
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::VideoSession>>(
-      [ev_bus = app_state->event_bus](const immer::box<events::VideoSession> &sess) {
-        // Start a thread that will wait for the RTP ping event
-        std::thread([sess, ev_bus]() {
-          auto ping_ev = wait_for_ping<events::RTPVideoPingEvent>(ev_bus, sess);
-
-          // Start streaming
-          streaming::start_streaming_video(sess,
-                                           ev_bus,
-                                           ping_ev->client_ip,
-                                           ping_ev->client_port,
-                                           ping_ev->video_socket.get());
-        }).detach();
-      }));
-
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::AudioSession>>(
-      [ev_bus = app_state->event_bus, audio_server](const immer::box<events::AudioSession> &sess) {
-        // Start a thread that will wait for the RTP ping event
-        std::thread([sess, ev_bus, audio_server]() {
-          auto ping_ev = wait_for_ping<events::RTPAudioPingEvent>(ev_bus, sess);
-
-          // Start streaming
-          auto audio_server_name = audio_server ? audio::get_server_name(audio_server->server)
-                                                : std::optional<std::string>();
-          auto sink_name = fmt::format("virtual_sink_{}.monitor", sess->session_id);
-          auto server_name = audio_server_name ? audio_server_name.value() : "";
-
-          streaming::start_streaming_audio(sess,
-                                           ev_bus,
-                                           ping_ev->client_ip,
-                                           ping_ev->client_port,
-                                           ping_ev->audio_socket.get(),
-                                           sink_name,
-                                           server_name);
-        }).detach();
-      }));
-
-  return handlers.persistent();
-}
-
 /**
  * @brief here's where the magic starts
  */
@@ -460,6 +165,7 @@ void run() {
   streaming::init(); // Need to initialise gstreamer once
   control::init();   // Need to initialise enet once
   docker::init();    // Need to initialise libcurl once
+  gst_video_context::init();
 
   auto runtime_dir = utils::get_env("XDG_RUNTIME_DIR", "/tmp/sockets");
   logs::log(logs::debug, "XDG_RUNTIME_DIR={}", runtime_dir);
@@ -495,9 +201,8 @@ void run() {
   rtp::start_rtp_ping(state::get_port(state::VIDEO_PING_PORT),
                       state::get_port(state::AUDIO_PING_PORT),
                       local_state->event_bus);
-
   // Wolf API server
-  std::thread([local_state]() { wolf::api::start_server(local_state); }).detach();
+  std::thread([local_state, runtime_dir]() { wolf::api::start_server(runtime_dir, local_state); }).detach();
 
   // mDNS
   std::thread([hostname = local_state->config->hostname]() {
@@ -518,7 +223,10 @@ void run() {
   }).detach();
 
   auto audio_server = setup_audio_server(local_state->host->host_xdg_runtime_dir, runtime_dir);
-  auto sess_handlers = setup_sessions_handlers(local_state, runtime_dir, audio_server);
+  // Setup event handlers for Moonlight related events (Start/Stop stream, hotplug, etc)
+  auto moonlight_sess_handlers = sessions::setup_moonlight_handlers(local_state, runtime_dir, audio_server);
+  // Setup event handlers for player Lobbies
+  auto lobbies_handlers = sessions::setup_lobbies_handlers(local_state, runtime_dir, audio_server);
 
   http_thread.join(); // Let's park the main thread over here
 }

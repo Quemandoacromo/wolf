@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/games-on-whales/gstreamer:1.26.2
+ARG BASE_IMAGE=ghcr.io/games-on-whales/gstreamer:1.26.7
 ########################################################
 FROM $BASE_IMAGE AS wolf-builder
 
@@ -25,13 +25,14 @@ RUN apt-get update -y && \
     libudev-dev \
     libdrm-dev \
     libpci-dev \
+    libglib2.0-dev libegl-dev libgles-dev libopengl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ## Install Rust in order to build our custom compositor
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="$HOME/.cargo/bin:${PATH}"
 
-ARG RUST_VERSION=1.88.0
+ARG RUST_VERSION=1.91.1
 ENV RUST_VERSION=$RUST_VERSION
 RUN rustup install $RUST_VERSION && rustup default $RUST_VERSION
 
@@ -42,9 +43,9 @@ RUN <<_GST_WAYLAND_DISPLAY
 
     git clone https://github.com/games-on-whales/gst-wayland-display
     cd gst-wayland-display
-    git checkout 412d26ae19cc4e729fda36ee0fb6a2dc38fec0ef
+    git checkout f31e506
     cargo install cargo-c
-    cargo cinstall -p gst-plugin-wayland-display --prefix=/usr/local/lib/x86_64-linux-gnu/ --libdir=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0
+    cargo cinstall --features="cuda" --prefix=/usr/local/lib/x86_64-linux-gnu/ --libdir=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0
 _GST_WAYLAND_DISPLAY
 
 COPY . /wolf/
@@ -101,14 +102,13 @@ COPY --from=wolf-builder /usr/local/lib/liblibgstwaylanddisplay* /usr/local/lib/
 
 WORKDIR /wolf
 
-ARG WOLF_CFG_FOLDER=/etc/wolf/cfg
-ENV WOLF_CFG_FOLDER=$WOLF_CFG_FOLDER
-RUN mkdir -p $WOLF_CFG_FOLDER
+ENV WOLF_CFG_FOLDER=/etc/wolf/cfg
 
 COPY --from=wolf-builder /wolf/wolf /wolf/wolf
 COPY --from=wolf-builder /wolf/fake-udev /wolf/fake-udev
 
 ENV GST_GL_API=gles2 \
+    GST_GL_PLATFORM=egl \
     GST_GL_WINDOW=surfaceless \
     WOLF_USE_ZERO_COPY=TRUE \
     WOLF_LOG_LEVEL=INFO \

@@ -30,14 +30,15 @@ struct WaylandDisplayReady {
   gstreamer::gst_element_ptr wayland_plugin;
 };
 
-void start_video_producer(std::size_t session_id,
+void start_video_producer(const std::string &session_id,
                           const std::string &buffer_format,
                           const std::string &render_node,
                           const wolf::core::virtual_display::DisplayMode &display_mode,
+                          std::shared_ptr<immer::atom<gst_video_context::gst_context_ptr>> video_context,
                           std::shared_ptr<boost::promise<WaylandDisplayReady>> on_ready,
                           std::shared_ptr<events::EventBusType> event_bus);
 
-void start_audio_producer(std::size_t session_id,
+void start_audio_producer(const std::string &session_id,
                           const std::shared_ptr<events::EventBusType> &event_bus,
                           int channel_count,
                           const std::string &sink_name,
@@ -47,6 +48,7 @@ void start_streaming_video(immer::box<events::VideoSession> video_session,
                            const std::shared_ptr<events::EventBusType> &event_bus,
                            std::string client_ip,
                            unsigned short client_port,
+                           std::shared_ptr<immer::atom<gst_video_context::gst_context_ptr>> video_context,
                            std::shared_ptr<udp::socket> video_socket);
 
 void start_streaming_audio(immer::box<events::AudioSession> audio_session,
@@ -59,8 +61,8 @@ void start_streaming_audio(immer::box<events::AudioSession> audio_session,
 
 static bool run_pipeline(
     const std::string &pipeline_desc,
-    const std::function<immer::array<immer::box<events::EventBusHandlers>>(
-        gstreamer::gst_element_ptr /* pipeline */, gstreamer::gst_main_loop_ptr /* main_loop */)> &on_pipeline_ready) {
+    const std::function<immer::array<immer::box<events::EventBusHandlers>>(gstreamer::gst_element_ptr /* pipeline */)>
+        &on_pipeline_ready) {
   GError *error = nullptr;
   gstreamer::gst_element_ptr pipeline(gst_parse_launch(pipeline_desc.c_str(), &error), [](const auto &pipeline) {
     logs::log(logs::trace, "~pipeline");
@@ -82,7 +84,7 @@ static bool run_pipeline(
   gstreamer::gst_main_loop_ptr loop(g_main_loop_new(context.get(), FALSE), ::g_main_loop_unref);
 
   /* Let the calling thread set extra things */
-  auto handlers = on_pipeline_ready(pipeline, loop);
+  auto handlers = on_pipeline_ready(pipeline);
 
   /*
    * adds a watch for new message on our pipeline's message bus to

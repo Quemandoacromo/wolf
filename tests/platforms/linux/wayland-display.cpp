@@ -12,6 +12,7 @@ using Catch::Matchers::Contains;
 using Catch::Matchers::StartsWith;
 using Catch::Matchers::Equals;
 using Catch::Matchers::SizeIs;
+using Catch::Matchers::StartsWith;
 
 using namespace wolf::core;
 using namespace wolf::core::virtual_display;
@@ -22,7 +23,7 @@ TEST_CASE("Wayland C APIs", "[WAYLAND]") {
 
   auto env_vars = get_env(*w_state);
   REQUIRE_THAT(env_vars, SizeIs(1));
-  REQUIRE_THAT(env_vars, Contains("WAYLAND_DISPLAY=wayland-1"));
+  REQUIRE_THAT(env_vars, Contains(StartsWith("WAYLAND_DISPLAY=wayland-")));
 
   auto graphic_devices = get_devices(*w_state);
   REQUIRE_THAT(graphic_devices, SizeIs(2));

@@ -31,8 +31,9 @@ static std::optional<std::string> get_device_major(std::string_view type) {
   return std::nullopt;
 }
 
-void RunDocker::run(std::size_t session_id,
+void RunDocker::run(std::string_view session_id,
                     std::string_view app_state_folder,
+                    std::string_view host_xdg_runtime_dir,
                     std::shared_ptr<events::devices_atom_queue> plugged_devices_queue,
                     const immer::array<std::string> &virtual_inputs,
                     const immer::array<std::pair<std::string, std::string>> &paths,
@@ -90,13 +91,13 @@ void RunDocker::run(std::size_t session_id,
       auto parsed_json = utils::parse_json(final_json_opts).as_object();
       auto default_gpu_config = boost::json::array{                    // [
                                                    boost::json::object{// {
-                                                                       {"Driver", "nvidia"},
                                                                        {"DeviceIDs", {"all"}},
                                                                        {"Capabilities", boost::json::array{{"gpu"}}}}};
       if (auto host_config_ptr = parsed_json.if_contains("HostConfig")) {
         auto host_config = host_config_ptr->as_object();
         if (host_config.find("DeviceRequests") == host_config.end()) {
           host_config["DeviceRequests"] = default_gpu_config;
+          host_config["Runtime"] = "nvidia";
           parsed_json["HostConfig"] = host_config;
           final_json_opts = boost::json::serialize(parsed_json);
         } else {
@@ -104,7 +105,7 @@ void RunDocker::run(std::size_t session_id,
         }
       } else {
         logs::log(logs::warning, "HostConfig not found in base_create_json.");
-        parsed_json["HostConfig"] = boost::json::object{{"DeviceRequests", default_gpu_config}};
+        parsed_json["HostConfig"] = boost::json::object{{"DeviceRequests", default_gpu_config}, {"Runtime", "nvidia"}};
         final_json_opts = boost::json::serialize(parsed_json);
       }
     }
@@ -123,6 +124,21 @@ void RunDocker::run(std::size_t session_id,
       });
       if (nvd_caps_env == full_env.end()) {
         full_env.push_back("NVIDIA_DRIVER_CAPABILITIES=all");
+      }
+    }
+  }
+
+  { // Setup Wolf socket path (if the runner needs it, and it hasn't been overridden via ENV)
+    auto socket_path_container_env = std::find_if(full_env.begin(), full_env.end(), [](const std::string &env) {
+      return env.find("WOLF_SOCKET_PATH") != std::string::npos;
+    });
+    if (!get_env("WOLF_SOCKET_PATH") && socket_path_container_env != full_env.end()) {
+      // Change the associated mount point to pick up the right path from the host
+      for (auto &mount : mounts) {
+        if (mount.destination.find("wolf.sock") != std::string::npos) {
+          mount.source = std::filesystem::path(host_xdg_runtime_dir) / "wolf.sock";
+          break;
+        }
       }
     }
   }
@@ -182,7 +198,14 @@ void RunDocker::run(std::size_t session_id,
 
     auto terminate_handler = this->ev_bus->register_handler<immer::box<events::StopStreamEvent>>(
         [session_id, container_id, this](const immer::box<events::StopStreamEvent> &terminate_ev) {
-          if (terminate_ev->session_id == session_id) {
+          if (std::to_string(terminate_ev->session_id) == session_id) {
+            docker_api.stop_by_id(container_id);
+          }
+        });
+
+    auto terminate_lobby_handler = this->ev_bus->register_handler<immer::box<events::StopLobbyEvent>>(
+        [session_id, container_id, this](const immer::box<events::StopLobbyEvent> &terminate_ev) {
+          if (terminate_ev->lobby_id == session_id) {
             docker_api.stop_by_id(container_id);
           }
         });
@@ -190,8 +213,13 @@ void RunDocker::run(std::size_t session_id,
     auto unplug_device_handler = this->ev_bus->register_handler<immer::box<events::UnplugDeviceEvent>>(
         [session_id, container_id, hw_db_path, this](const immer::box<events::UnplugDeviceEvent> &ev) {
           if (ev->session_id == session_id) {
+            logs::log(logs::debug, "[DOCKER] Received UnplugDeviceEvent for session: {}", ev->session_id);
             for (const auto &[filename, content] : ev->udev_hw_db_entries) {
-              std::filesystem::remove(hw_db_path / filename);
+              try {
+                std::filesystem::remove(hw_db_path / filename);
+              } catch (const std::filesystem::filesystem_error &e) {
+                logs::log(logs::warning, "[DOCKER] Failed to remove udev hwdb entry: {}", e.what());
+              }
             }
 
             for (auto udev_ev : ev->udev_events) {
@@ -213,6 +241,7 @@ void RunDocker::run(std::size_t session_id,
       // Plug all devices that are waiting in the queue
       while (auto device_ev = plugged_devices_queue->pop(50ms)) {
         if (device_ev->get().session_id == session_id) {
+          logs::log(logs::debug, "[DOCKER] Plugging device from queue in session: {}", session_id);
           if (use_fake_udev) {
             create_udev_hw_files(hw_db_path, device_ev->get().udev_hw_db_entries);
           }
@@ -249,8 +278,11 @@ void RunDocker::run(std::size_t session_id,
       }
     }
     logs::log(logs::info, "Stopped container: {}", docker_container->name);
-    std::filesystem::remove_all(udev_base_path);
-    terminate_handler.unregister();
+    try {
+      std::filesystem::remove_all(udev_base_path);
+    } catch (const std::filesystem::filesystem_error &e) {
+      logs::log(logs::warning, "Failed to remove udev base path: {}", e.what());
+    }
   }
 }
 

@@ -10,8 +10,9 @@ namespace process {
 
 using namespace wolf::core::events;
 
-void RunProcess::run(std::size_t session_id,
+void RunProcess::run(std::string_view session_id,
                      std::string_view app_state_folder,
+                     std::string_view host_xdg_runtime_dir,
                      std::shared_ptr<events::devices_atom_queue> plugged_devices_queue,
                      const immer::array<std::string> &virtual_inputs,
                      const immer::array<std::pair<std::string, std::string>> &paths,
@@ -19,7 +20,7 @@ void RunProcess::run(std::size_t session_id,
                      std::string_view render_node) {
   logs::log(logs::debug, "[PROCESS] Starting process: {}", this->run_cmd);
 
-  std::future<std::string> std_out, err_out;
+  std::future<std::string> std_out = {}, err_out = {};
   boost::asio::io_context ios;
   bp::child child_proc;
   bp::group group_proc;
@@ -47,7 +48,14 @@ void RunProcess::run(std::size_t session_id,
 
   auto terminate_handler = this->ev_bus->register_handler<immer::box<StopStreamEvent>>(
       [&group_proc, session_id](const immer::box<StopStreamEvent> &terminate_ev) {
-        if (terminate_ev->session_id == session_id) {
+        if (std::to_string(terminate_ev->session_id) == session_id) {
+          group_proc.terminate(); // Manually terminate the process
+        }
+      });
+
+  auto terminate_lobby_handler = this->ev_bus->register_handler<immer::box<StopLobbyEvent>>(
+      [&group_proc, session_id](const immer::box<StopLobbyEvent> &terminate_ev) {
+        if (terminate_ev->lobby_id == session_id) {
           group_proc.terminate(); // Manually terminate the process
         }
       });
@@ -59,10 +67,10 @@ void RunProcess::run(std::size_t session_id,
   child_proc.wait(); // to avoid a zombie process & get the exit code
 
   auto ex_code = child_proc.exit_code();
-  logs::log(logs::debug, "[PROCESS] Terminated with status code: {}\nstd_out: {}", ex_code, std_out.get());
-  auto errors = err_out.get();
-  if (!errors.empty()) {
-    logs::log(logs::warning, "[PROCESS] Terminated with status code: {}, std_err: {}", ex_code, errors);
+  if (ex_code != 0) {
+    logs::log(logs::warning, "Process exited with code: {}", ex_code);
+  } else {
+    logs::log(logs::debug, "Process exited with code: {}", ex_code);
   }
 
   terminate_handler.unregister();
