@@ -30,6 +30,8 @@ void UnixSocketServer::endpoint_Pair(const HTTPRequest &req, std::shared_ptr<Uni
   if (event) {
     if (auto pair_request = state_->app_state->pairing_atom->load()->find(event.value().pair_secret)) {
       pair_request->get().user_pin->set_value(event.value().pin.value()); // Resolve the promise
+      state_->app_state->pairing_atom->update(
+          [pair_secret = event.value().pair_secret](auto pairing_map) { return pairing_map.erase(pair_secret); });
       auto res = GenericSuccessResponse{.success = true};
       send_http(socket, 200, rfl::json::write(res));
     } else {

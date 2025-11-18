@@ -168,6 +168,8 @@ TEST_CASE("Pair APIs", "[API]") {
     REQUIRE(cfg.paired_clients->load().get()[0]->app_state_folder == "ASDF");
   }
 
+  REQUIRE(app_state->pairing_atom->load().get().size() == 0);
+
   { // Test out changing client settings
     response = req(curl.get(),
                    HTTPMethod::POST,
