@@ -333,6 +333,13 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
         on_moonlight_session_over(stop_stream_event->session_id);
       }));
 
+  // When a client presses the WolfUI special combo, we get the user out of the lobby (and back to WolfUI)
+  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::ClientWolfUIComboEvent>>(
+      [=](const immer::box<events::ClientWolfUIComboEvent> &event) {
+        logs::log(logs::info, "Detected WolfUI combo for session {}", event->session_id);
+        on_moonlight_session_over(event->session_id);
+      }));
+
   return handlers.persistent();
 }
 

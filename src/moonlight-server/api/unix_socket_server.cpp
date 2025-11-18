@@ -296,22 +296,25 @@ UnixSocketServer::UnixSocketServer(boost::asio::io_context &io_context,
    */
   state_->http.add(HTTPMethod::GET,
                    "/api/v1/utils/get-icon",
-                   {.summary = "Get the icon for a given app, pass the icon_path as a query parameter ex: "
-                               "/api/v1/utils/get-icon?icon_path=/etc/wolf/icons/steam.png",
+                   {.summary = "Get the icon for a given app",
+                    .description = "Get the icon for a given app, pass the icon_path as a query parameter ex: "
+                                   "/api/v1/utils/get-icon?icon_path=/etc/wolf/icons/steam.png",
                     .handler = [this](auto req, auto socket) { endpoint_GetIcon(req, socket); }});
 
   state_->http.add(
       HTTPMethod::GET,
       "/api/v1/docker/images/inspect",
-      {.summary = "Inspect a Docker image and returns the full JSON response as is from the Docker APIs at "
-                  "/images/{image_name}/json expects image_name as a query parameter.",
+      {.summary = "Inspect a Docker image",
+       .description = "Inspect a Docker image and returns the full JSON response as is from the Docker APIs at "
+                      "/images/{image_name}/json expects image_name as a query parameter.",
        .handler = [this](auto req, auto socket) { endpoint_DockerInspectImage(req, socket); }});
 
   state_->http.add(
       HTTPMethod::POST,
       "/api/v1/docker/images/pull",
-      {.summary = "Pull a Docker image, will keep the connection open to send back progress updates. Each "
-                  "progress event will be a single line encoded as JSON.",
+      {.summary = "Pull a Docker image",
+       .description = "Pull a Docker image, will keep the connection open to send back progress updates. Each "
+                      "progress event will be a single line encoded as JSON.",
        .request_description = APIDescription{.json_schema = rfl::json::to_schema<DockerPullImageRequest>()},
        .response_description = {{200, {.json_schema = rfl::json::to_schema<DockerPullImageResponse>()}},
                                 {500, {.json_schema = rfl::json::to_schema<GenericErrorResponse>()}}},
