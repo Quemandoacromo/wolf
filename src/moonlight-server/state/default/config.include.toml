@@ -44,7 +44,7 @@ type = 'docker'
 
 [[profiles.apps]]
 title = "Test ball"
-icon_png_path = "https://raw.githubusercontent.com/games-on-whales/wolf/refs/heads/wolf-ui/docs/images/test_ball_icon.png"
+icon_png_path = "https://raw.githubusercontent.com/games-on-whales/wolf/refs/heads/stable/docs/images/test_ball_icon.png"
 start_virtual_compositor = false
 start_audio_server = false
 
