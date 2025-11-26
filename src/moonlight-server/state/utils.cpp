@@ -26,19 +26,20 @@ std::optional<std::string> curl_get(std::string_view url) {
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
     auto res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
     if (res != CURLE_OK) {
       logs::log(logs::warning, "Could not download asset from {}, {}", url, curl_easy_strerror(res));
     } else {
       long response_code;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
       if (response_code == 200) {
+        curl_easy_cleanup(curl);
         return read_buf;
       } else {
         logs::log(logs::warning, "Could not download asset from {}, response code: {}", url, response_code);
       }
     }
   }
+  curl_easy_cleanup(curl);
   return {};
 }
 
