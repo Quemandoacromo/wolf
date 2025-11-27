@@ -1,5 +1,7 @@
 #pragma once
 
+#include "catch2/catch_test_macros.hpp"
+
 #include <fcntl.h>
 #include <helpers/logger.hpp>
 #include <inputtino/protected_types.hpp>
@@ -59,7 +61,7 @@ static void link_devnode(libevdev *dev, const std::string &device_node) {
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
   auto fd = open(device_node.c_str(), O_RDONLY | O_NONBLOCK);
-  assert(fd >= 0 && "Unable to open device node");
+  REQUIRE(fd >= 0);
   libevdev_set_fd(dev, fd);
 }
 

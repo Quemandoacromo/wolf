@@ -594,22 +594,25 @@ void controller_multi(const CONTROLLER_MULTI_PACKET &pkt,
     // Old Moonlight doesn't support CONTROLLER_ARRIVAL, we create a default pad when it's first mentioned
     selected_pad = create_new_joypad(session, connected_client, pkt.controller_number, XBOX, ANALOG_TRIGGERS | RUMBLE);
   }
-  std::visit(
-      [pkt, session](inputtino::Joypad &pad) {
-        std::uint16_t bf = pkt.button_flags;
-        std::uint32_t bf2 = pkt.buttonFlags2;
-        auto pressed_buttons = bf | (bf2 << 16);
-        // Check for our special WOLF-UI combo (SELECT + RB)
-        if (pressed_buttons & inputtino::Joypad::BACK && pressed_buttons & inputtino::Joypad::RIGHT_BUTTON) {
-          session.event_bus->fire_event(immer::box<events::ClientWolfUIComboEvent>{
-              events::ClientWolfUIComboEvent{.session_id = session.session_id}});
-        }
-        pad.set_pressed_buttons(pressed_buttons);
-        pad.set_stick(inputtino::Joypad::LS, pkt.left_stick_x, pkt.left_stick_y);
-        pad.set_stick(inputtino::Joypad::RS, pkt.right_stick_x, pkt.right_stick_y);
-        pad.set_triggers(pkt.left_trigger, pkt.right_trigger);
-      },
-      *selected_pad);
+  if (selected_pad) {
+    std::visit(
+        [pkt, session](inputtino::Joypad &pad) {
+          std::uint16_t bf = pkt.button_flags;
+          std::uint32_t bf2 = pkt.buttonFlags2;
+          auto pressed_buttons = bf | (bf2 << 16);
+          // Check for our special WOLF-UI combo (START + UP + RB)
+          if (pressed_buttons & inputtino::Joypad::START && pressed_buttons & inputtino::Joypad::DPAD_UP &&
+              pressed_buttons & inputtino::Joypad::RIGHT_BUTTON) {
+            session.event_bus->fire_event(immer::box<events::ClientWolfUIComboEvent>{
+                events::ClientWolfUIComboEvent{.session_id = session.session_id}});
+          }
+          pad.set_pressed_buttons(pressed_buttons);
+          pad.set_stick(inputtino::Joypad::LS, pkt.left_stick_x, pkt.left_stick_y);
+          pad.set_stick(inputtino::Joypad::RS, pkt.right_stick_x, pkt.right_stick_y);
+          pad.set_triggers(pkt.left_trigger, pkt.right_trigger);
+        },
+        *selected_pad);
+  }
 }
 
 void controller_touch(const CONTROLLER_TOUCH_PACKET &pkt, events::StreamSession &session) {
