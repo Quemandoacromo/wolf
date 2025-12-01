@@ -212,27 +212,66 @@ void UnixSocketServer::endpoint_StreamSessions(const HTTPRequest &req, std::shar
 void UnixSocketServer::endpoint_StreamSessionAdd(const HTTPRequest &req, std::shared_ptr<UnixSocket> socket) {
   auto session = rfl::json::read<rfl::Reflector<events::StreamSession>::ReflType>(req.body);
   if (session) {
+    immer::box<events::App> choosen_app;
     auto ss = session.value();
-    auto app = state::get_moonlight_app_by_id(this->state_->app_state->config, ss.app_id);
-    if (!app) {
-      logs::log(logs::warning, "[API] Invalid app_id: {}", ss.app_id);
-      auto res = GenericErrorResponse{.error = "Invalid app_id"};
-      send_http(socket, 500, rfl::json::write(res));
-      return;
+    if (auto app_id = ss.app_id) {
+      auto app = state::get_moonlight_app_by_id(this->state_->app_state->config, *app_id);
+      if (!app) {
+        logs::log(logs::warning, "[API] Invalid app_id: {}", *app_id);
+        auto res = GenericErrorResponse{.error = "Invalid app_id"};
+        send_http(socket, 500, rfl::json::write(res));
+        return;
+      }
+      choosen_app = *app;
+    } else {
+      auto moonlight_profile = state::get_moonlight_profile(this->state_->app_state->config);
+      if (!moonlight_profile) {
+        logs::log(logs::warning, "[API] No moonlight profile found, unable to automatically create an app.");
+        auto res = GenericErrorResponse{.error = "No moonlight profile found"};
+        send_http(socket, 500, rfl::json::write(res));
+        return;
+      }
+      immer::vector<immer::box<events::App>> apps = moonlight_profile.value()->apps->load();
+      immer::box<events::App> sample_app = apps.front();
+      choosen_app = events::App{
+          .base = {.title = "dummy", .id = state::gen_uuid(), .support_hdr = false, .icon_png_path = ""},
+
+          .video_producer_buffer_caps = sample_app->video_producer_buffer_caps,
+
+          .h264_gst_pipeline = sample_app->h264_gst_pipeline,
+          .hevc_gst_pipeline = sample_app->hevc_gst_pipeline,
+          .av1_gst_pipeline = sample_app->av1_gst_pipeline,
+
+          .render_node = sample_app->render_node,
+          .opus_gst_pipeline = sample_app->opus_gst_pipeline,
+          .start_virtual_compositor = true,
+          .start_audio_server = true,
+
+          .runner = std::make_shared<process::RunProcess>(state_->app_state->event_bus,
+                                                          "sh -c \"while :; do echo 'running...'; sleep 10; done\"")};
     }
 
-    auto client = state::get_client_by_id(this->state_->app_state->config, ss.client_id);
-    if (!client) {
-      logs::log(logs::warning, "[API] Invalid client_id: {}", ss.client_id);
-      auto res = GenericErrorResponse{.error = "Invalid client_id"};
-      send_http(socket, 500, rfl::json::write(res));
-      return;
+    config::PairedClient choosen_client;
+    if (auto client_id = ss.client_id) {
+      auto client = state::get_client_by_id(this->state_->app_state->config, *client_id);
+      if (!client) {
+        logs::log(logs::warning, "[API] Invalid client_id: {}", *client_id);
+        auto res = GenericErrorResponse{.error = "Invalid client_id"};
+        send_http(socket, 500, rfl::json::write(res));
+        return;
+      }
+      choosen_client = *client;
+    } else {
+      // Create a dummy client
+      choosen_client = {.client_cert = "", .app_state_folder = state::gen_uuid(), .settings = {}};
     }
+
+    choosen_client.settings = ss.client_settings.value_or({});
 
     auto new_session = state::create_stream_session( //
         state_->app_state,
-        app.value(),
-        client.value(),
+        choosen_app,
+        choosen_client,
         moonlight::DisplayMode{.width = ss.video_width,
                                .height = ss.video_height,
                                .refreshRate = ss.video_refresh_rate,

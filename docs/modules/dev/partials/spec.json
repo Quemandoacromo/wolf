@@ -1062,12 +1062,6 @@
       "rfl__Reflector_wolf__core__events__StreamSession___ReflType": {
         "type": "object",
         "properties": {
-          "app_id": {
-            "type": "string"
-          },
-          "client_id": {
-            "type": "string"
-          },
           "client_ip": {
             "type": "string"
           },
@@ -1092,13 +1086,38 @@
           "audio_channel_count": {
             "type": "integer"
           },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "client_settings": {
-            "$ref": "#/components/schemas/wolf__config__ClientSettings"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/wolf__config__ClientSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
-          "app_id",
-          "client_id",
           "client_ip",
           "aes_key",
           "aes_iv",
@@ -1106,8 +1125,7 @@
           "video_width",
           "video_height",
           "video_refresh_rate",
-          "audio_channel_count",
-          "client_settings"
+          "audio_channel_count"
         ]
       },
       "wolf__api__AppDeleteRequest": {

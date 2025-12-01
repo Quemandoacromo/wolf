@@ -138,8 +138,6 @@ template <> struct Reflector<events::StartRunner> {
 
 template <> struct Reflector<events::StreamSession> {
   struct ReflType {
-    std::string app_id;
-    std::string client_id;
     std::string client_ip;
 
     // gcm encryption keys
@@ -153,13 +151,13 @@ template <> struct Reflector<events::StreamSession> {
 
     int audio_channel_count;
 
-    wolf::config::ClientSettings client_settings;
+    std::optional<std::string> app_id;
+    std::optional<std::string> client_id;
+    std::optional<ClientSettings> client_settings;
   };
 
   static ReflType from(const events::StreamSession &v) {
-    return {.app_id = v.app->base.id,
-            .client_id = std::to_string(v.session_id),
-            .client_ip = v.ip,
+    return {.client_ip = v.ip,
             .aes_key = v.aes_key,
             .aes_iv = v.aes_iv,
             .rtsp_fake_ip = v.rtsp_fake_ip,
@@ -167,6 +165,8 @@ template <> struct Reflector<events::StreamSession> {
             .video_height = v.display_mode.height,
             .video_refresh_rate = v.display_mode.refreshRate,
             .audio_channel_count = v.audio_channel_count,
+            .app_id = v.app->base.id,
+            .client_id = std::to_string(v.session_id),
             .client_settings = v.client_settings};
   }
 };

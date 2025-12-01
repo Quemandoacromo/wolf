@@ -389,9 +389,10 @@ TEST_CASE("Sessions APIs", "[API]") {
 
   // Test that we can add a session
   auto session = rfl::Reflector<wolf::core::events::StreamSession>::ReflType{
+      .client_ip = "127.0.0.1",
       .app_id = "304556286",               // test cfg file
       .client_id = "10594003729173467913", // test cfg file
-      .client_ip = "127.0.0.1"};
+  };
   response = req(curl.get(), HTTPMethod::POST, "http://localhost/api/v1/sessions/add", rfl::json::write(session));
   REQUIRE(response);
   REQUIRE_THAT(response->second, Catch::Matchers::ContainsSubstring("{\"success\":true,\"session_id\":"));
@@ -426,6 +427,51 @@ TEST_CASE("Sessions APIs", "[API]") {
   response = req(curl.get(), HTTPMethod::POST, "http://localhost/api/v1/sessions/stop", rfl::json::write(stop_request));
   REQUIRE(response);
   REQUIRE_THAT(response->second, Equals("{\"success\":true}"));
+}
+
+TEST_CASE("Session APIs without app_id or client_id", "[API]") {
+  auto event_bus = std::make_shared<events::EventBusType>();
+  auto running_sessions = std::make_shared<immer::atom<immer::vector<events::StreamSession>>>();
+  auto config = immer::box<state::Config>(state::load_or_default("config.test.toml", event_bus, running_sessions));
+  auto app_state = immer::box<state::AppState>(state::AppState{
+      .config = config,
+      .pairing_cache = std::make_shared<immer::atom<immer::map<std::string, state::PairCache>>>(),
+      .pairing_atom = std::make_shared<immer::atom<immer::map<std::string, immer::box<events::PairSignal>>>>(),
+      .event_bus = event_bus,
+      .running_sessions = running_sessions});
+
+  // Start the server
+  std::thread server_thread([app_state]() { wolf::api::start_server("/tmp/", app_state); });
+  server_thread.detach();
+  std::this_thread::sleep_for(std::chrono::milliseconds(42)); // Wait for the server to start
+
+  auto curl = curl_ptr(curl_easy_init(), ::curl_easy_cleanup);
+
+  curl_easy_setopt(curl.get(), CURLOPT_UNIX_SOCKET_PATH, "/tmp/wolf.sock");
+  curl_easy_setopt(curl.get(), CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+
+  // Test that the initial list of sessions is empty
+  auto response = req(curl.get(), HTTPMethod::GET, "http://localhost/api/v1/sessions");
+  REQUIRE(response);
+  auto sessions = rfl::json::read<StreamSessionListResponse>(response->second).value();
+  REQUIRE(sessions.success);
+  REQUIRE(sessions.sessions.size() == 0);
+
+  // Test that we can add a session
+  auto session = rfl::Reflector<wolf::core::events::StreamSession>::ReflType{
+      .client_ip = "127.0.0.1",
+  };
+
+  response = req(curl.get(), HTTPMethod::POST, "http://localhost/api/v1/sessions/add", rfl::json::write(session));
+  REQUIRE(response);
+  REQUIRE_THAT(response->second, Catch::Matchers::ContainsSubstring("{\"success\":true,\"session_id\":"));
+
+  // Test that the new session is in the list
+  response = req(curl.get(), HTTPMethod::GET, "http://localhost/api/v1/sessions");
+  REQUIRE(response);
+  auto sessions2 = rfl::json::read<StreamSessionListResponse>(response->second).value();
+  REQUIRE(sessions2.success);
+  REQUIRE(sessions2.sessions.size() == 1);
 }
 
 TEST_CASE("Lobbies APIs", "[API]") {
