@@ -362,19 +362,17 @@ void keyboard_key(const KEYBOARD_PACKET &pkt, events::StreamSession &session) {
 
     // CTRL + ALT + SHIFT + W
     const bool wolf_ui_combo = (wolf_ui_combo_pressed == 3 && moonlight_key == 0x57);
-
     if (wolf_ui_combo) {
       // Ensure modifiers are released before we return to overlay
-      if (pkt.modifiers & KEYBOARD_MODIFIERS::SHIFT)
-        std::visit([](auto &keyboard) { keyboard.release(M_SHIFT); }, session.keyboard->value());
-      if (pkt.modifiers & KEYBOARD_MODIFIERS::CTRL)
-        std::visit([](auto &keyboard) { keyboard.release(M_CTRL); }, session.keyboard->value());
-      if (pkt.modifiers & KEYBOARD_MODIFIERS::ALT)
-        std::visit([](auto &keyboard) { keyboard.release(M_ALT); }, session.keyboard->value());
-
-      session.event_bus->fire_event(immer::box<events::ClientWolfUIComboEvent>{
-          events::ClientWolfUIComboEvent{.session_id = session.session_id}
-      });
+      std::visit(
+          [](auto &keyboard) {
+            keyboard.release(M_SHIFT);
+            keyboard.release(M_CTRL);
+            keyboard.release(M_ALT);
+          },
+          session.keyboard->value());
+      session.event_bus->fire_event(
+          immer::box<events::ClientWolfUIComboEvent>{events::ClientWolfUIComboEvent{.session_id = session.session_id}});
       return;
     }
 

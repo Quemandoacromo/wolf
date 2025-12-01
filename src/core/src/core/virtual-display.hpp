@@ -27,6 +27,10 @@ bool add_input_device(WaylandState &w_state, const std::string &device_path);
 class WaylandMouse {
 public:
   WaylandMouse(wl_state_ptr w_state) : w_state(w_state) {};
+  WaylandMouse(WaylandMouse &&j) noexcept : w_state(nullptr) {
+    std::swap(j.w_state, w_state);
+  }
+  ~WaylandMouse();
 
   void move(int delta_x, int delta_y);
 
@@ -47,6 +51,10 @@ private:
 class WaylandKeyboard {
 public:
   WaylandKeyboard(wl_state_ptr w_state) : w_state(w_state) {};
+  WaylandKeyboard(WaylandKeyboard &&j) noexcept : w_state(nullptr) {
+    std::swap(j.w_state, w_state);
+  }
+  ~WaylandKeyboard();
 
   void press(unsigned int key_code);
 
@@ -59,6 +67,10 @@ private:
 class WaylandTouchScreen {
 public:
   WaylandTouchScreen(wl_state_ptr w_state) : w_state(w_state) {};
+  WaylandTouchScreen(WaylandTouchScreen &&j) noexcept : w_state(nullptr) {
+    std::swap(j.w_state, w_state);
+  }
+  ~WaylandTouchScreen();
 
   void down(unsigned int touch_id, double x, double y);
 
