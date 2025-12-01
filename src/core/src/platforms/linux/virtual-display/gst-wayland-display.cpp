@@ -4,6 +4,7 @@
 
 #include <core/virtual-display.hpp>
 #include <linux/input-event-codes.h>
+#include <set>
 
 namespace wolf::core::virtual_display {
 struct WaylandState {
@@ -14,6 +15,16 @@ struct WaylandState {
   gstreamer::gst_element_ptr wayland_plugin;
 
   std::string wayland_socket_name;
+
+  /**
+   * A list of currently pressed keyboard keycodes
+   */
+  std::set<unsigned int> pressed_keys;
+
+  /**
+   * A list of currently pressed mouse buttons
+   */
+  std::set<unsigned int> pressed_buttons;
 };
 
 wl_state_ptr create_wayland_display(gstreamer::gst_element_ptr wayland_plugin, const std::string &wayland_socket_name) {
@@ -66,7 +77,19 @@ unsigned int moonlight_button_to_linux(unsigned int button) {
   }
 }
 
+WaylandMouse::~WaylandMouse() {
+  if (w_state) {
+    // Release all currently pressed buttons
+    // We have to copy here because we are erasing from the set
+    std::vector keys_to_release(w_state->pressed_buttons.begin(), w_state->pressed_buttons.end());
+    for (const auto key : keys_to_release) {
+      release(key);
+    }
+  }
+}
+
 void WaylandMouse::press(unsigned int button) {
+  w_state->pressed_buttons.insert(button);
   auto msg = /* clang-format off */
                           gst_structure_new("MouseButton",
                             "button", G_TYPE_UINT, moonlight_button_to_linux(button),
@@ -77,6 +100,7 @@ void WaylandMouse::press(unsigned int button) {
 }
 
 void WaylandMouse::release(unsigned int button) {
+  w_state->pressed_buttons.erase(button);
   auto msg = /* clang-format off */
                           gst_structure_new("MouseButton",
                             "button", G_TYPE_UINT, moonlight_button_to_linux(button),
@@ -169,8 +193,21 @@ static const std::map<unsigned int, unsigned int> key_mappings = {
     {0xDE, KEY_APOSTROPHE}, {0xE2, KEY_102ND},
 };
 
+WaylandKeyboard::~WaylandKeyboard() {
+  if (w_state) {
+    // Release all currently pressed keys
+    // We have to copy here because we are erasing from the set
+    std::vector keys_to_release(w_state->pressed_keys.begin(), w_state->pressed_keys.end());
+    for (const auto key : keys_to_release) {
+      release(key);
+    }
+  }
+}
+
 void WaylandKeyboard::press(unsigned int key_code) {
   if (key_mappings.contains(key_code)) {
+    w_state->pressed_keys.insert(key_code);
+
     auto msg = /* clang-format off */
                            gst_structure_new("KeyboardKey",
                              "key", G_TYPE_UINT, key_mappings.at(key_code),
@@ -185,6 +222,9 @@ void WaylandKeyboard::press(unsigned int key_code) {
 
 void WaylandKeyboard::release(unsigned int key_code) {
   if (key_mappings.contains(key_code)) {
+    // update pressed_keys
+    w_state->pressed_keys.erase(key_code);
+
     auto msg = /* clang-format off */
                            gst_structure_new("KeyboardKey",
                              "key", G_TYPE_UINT, key_mappings.at(key_code),
@@ -194,6 +234,12 @@ void WaylandKeyboard::release(unsigned int key_code) {
     gstreamer::send_message(w_state->wayland_plugin.get(), msg);
   } else {
     logs::log(logs::warning, "Key code not found: {}", key_code);
+  }
+}
+
+WaylandTouchScreen::~WaylandTouchScreen() {
+  if (w_state) {
+    cancel();
   }
 }
 
