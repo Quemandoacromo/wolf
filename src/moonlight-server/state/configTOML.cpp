@@ -334,8 +334,17 @@ Config load_or_default(const std::string &source,
             default_gst_render_node);
 
   default_base_video.h264_encoder = h264_encoder.value().encoder_pipeline;
-  default_base_video.hevc_encoder = hevc_encoder.value().encoder_pipeline;
-  default_base_video.av1_encoder = av1_encoder.value().encoder_pipeline;
+  if (hevc_encoder) {
+    default_base_video.hevc_encoder = hevc_encoder.value().encoder_pipeline;
+  } else {
+    logs::log(logs::warning, "Unable to find an HEVC encoder, disabling it");
+  }
+
+  if (av1_encoder) {
+    default_base_video.av1_encoder = av1_encoder.value().encoder_pipeline;
+  } else {
+    logs::log(logs::warning, "Unable to find an AV1 encoder, disabling it");
+  }
 
   auto empty_enc = GstEncoderDefault{};
   auto default_h264 = utils::get_optional(default_gst_encoder_settings, h264_encoder.value_or(GstEncoder{}).plugin_name)
@@ -349,13 +358,18 @@ Config load_or_default(const std::string &source,
                                ? h264_encoder->video_params_zero_copy.value_or(default_h264.video_params_zero_copy)
                                : h264_encoder->video_params.value_or(default_h264.video_params);
 
-  auto hevc_video_params = use_zero_copy
-                               ? hevc_encoder->video_params_zero_copy.value_or(default_hevc.video_params_zero_copy)
-                               : hevc_encoder->video_params.value_or(default_hevc.video_params);
+  std::string hevc_video_params;
+  if (hevc_encoder) {
+    hevc_video_params = use_zero_copy
+                            ? hevc_encoder->video_params_zero_copy.value_or(default_hevc.video_params_zero_copy)
+                            : hevc_encoder->video_params.value_or(default_hevc.video_params);
+  }
 
-  auto av1_video_params = use_zero_copy
-                              ? av1_encoder->video_params_zero_copy.value_or(default_av1.video_params_zero_copy)
-                              : av1_encoder->video_params.value_or(default_av1.video_params);
+  std::string av1_video_params;
+  if (av1_encoder) {
+    av1_video_params = use_zero_copy ? av1_encoder->video_params_zero_copy.value_or(default_av1.video_params_zero_copy)
+                                     : av1_encoder->video_params.value_or(default_av1.video_params);
+  }
 
   auto clients_atom = std::make_shared<immer::atom<PairedClientList>>(paired_clients);
 
