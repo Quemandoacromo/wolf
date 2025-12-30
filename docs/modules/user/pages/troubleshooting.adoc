@@ -162,13 +162,13 @@ By default, it behaves as follows:
 
 To verify if you are affected by this, you can run a relatively simple test with `iperf3`.
 Run the server on the same machine as your `wolf` server is running with `iperf3 -s`.
-Run `iperf3 -c <your wolf server> -t 690 -u -R -b 100M` on your client laptop.
+Run `iperf3 -c <your wolf server> -t 690 -u -R -b 80M` on your client laptop.
 
   - `-c <your wolf server>` tells iperf3 to connect to the server at ip or hostname in client mode
   - `-t 690` sets the duration of the test to 690 seconds (11.5 minutes)
   - `-u` sets it to UDP mode
   - `-R` ensures that it is testing the data being sent _from_ the server _to_ the client.
-  - `-b 100M` limits the bandwidth used to 100 megabits per second. Alter to match the expected maximum bandwidth you are going to have going over your network.
+  - `-b 80M` limits the bandwidth used to 80 megabits per second. Alter to match the expected maximum bandwidth you are going to have going over your network.
 
 If you have
 
