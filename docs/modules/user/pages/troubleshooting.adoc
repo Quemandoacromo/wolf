@@ -152,6 +152,8 @@ One good step to isolate the issue is to run moonlight statistics, and to valida
 == Regular stutter every 5 minutes on Linux laptop
 This is specific to the situation where your moonlight client is a linux laptop running NetworkManager/wpa_supplicant.
 
+It's been observed with at least AMD RZ616 (Mediatek MT7921K) and Intel AX210 wireless cards.
+
 If you encounter a situation where you have a regular dropout every 5 minutes, this is for you.
 
 Its possibly not your network, its NetworkManager/wpa_supplicant running the bgscan every 5 minutes. Purpose of this scan is to verify if you are connected to the strongest AP for your network.
