@@ -398,57 +398,9 @@ First you need to make sure your GPU drivers are installed and loaded on your PV
 
 Also make sure to add the virtual devices udev rules to the PVE host as explained in the xref:quickstart.adoc#_virtual_devices_support[Virtual devices support] section.
 
-Now, we need to edit LXC config file to passtrough the GPU.
-
-.I don't have a LXC yet
-[%collapsible]
-====
-
-The easiest way to create an LXC to run Wolf is to use https://community-scripts.github.io/ProxmoxVE/scripts?id=docker[tteck's PVE docker script], this will create you a LXC with docker already good to go.
-(Make sure you choose privileged LXC and install docker-compose when prompted)
-
-====
-
 Enter the LXC config file: `nano /etc/pve/lxc/1XX.conf`
 
-it should look similar to this:
-
-```
-arch: amd64
-cores: 8
-features: nesting=1
-hostname: wolf
-memory: 8192
-net0: name=eth0,bridge=vmbr0,hwaddr=BC:24:11:B7:90:5D,ip=dhcp,type=veth
-onboot: 1
-ostype: debian
-rootfs: local-lvm:vm-118-disk-0,size=128G
-swap: 512
-tags: proxmox-helper-scripts
-lxc.cgroup2.devices.allow: a
-lxc.cap.drop:
-lxc.cgroup2.devices.allow: c 188:* rwm
-lxc.cgroup2.devices.allow: c 189:* rwm
-lxc.mount.entry: /dev/serial/by-id  dev/serial/by-id  none bind,optional,create=dir
-lxc.mount.entry: /dev/ttyUSB0       dev/ttyUSB0       none bind,optional,create=file
-lxc.mount.entry: /dev/ttyUSB1       dev/ttyUSB1       none bind,optional,create=file
-lxc.mount.entry: /dev/ttyACM0       dev/ttyACM0       none bind,optional,create=file
-lxc.mount.entry: /dev/ttyACM1       dev/ttyACM1       none bind,optional,create=file
-```
-
-remove the following lines from the bottom, they are not needed:
-
-```
-lxc.cgroup2.devices.allow: c 188:* rwm
-lxc.cgroup2.devices.allow: c 189:* rwm
-lxc.mount.entry: /dev/serial/by-id  dev/serial/by-id  none bind,optional,create=dir
-lxc.mount.entry: /dev/ttyUSB0       dev/ttyUSB0       none bind,optional,create=file
-lxc.mount.entry: /dev/ttyUSB1       dev/ttyUSB1       none bind,optional,create=file
-lxc.mount.entry: /dev/ttyACM0       dev/ttyACM0       none bind,optional,create=file
-lxc.mount.entry: /dev/ttyACM1       dev/ttyACM1       none bind,optional,create=file
-```
-
-add these lines to the bottom of the file:
+Add these lines to the bottom of the file:
 
 For Nvidia
 
@@ -463,9 +415,11 @@ dev5: /dev/nvidia-uvm
 dev6: /dev/nvidia-uvm-tools
 dev7: /dev/nvidia-caps/nvidia-cap1
 dev8: /dev/nvidia-caps/nvidia-cap2
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
 lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
-lxc.mount.entry: /dev/input dev/input none bind,optional,create=dir
 lxc.mount.entry: /run/udev mnt/udev none bind,optional,create=dir
+lxc.mount.entry: /dev mnt/dev none bind,optional,create=dir
 ----
 
 For Intel/AMD
@@ -474,9 +428,11 @@ For Intel/AMD
 ----
 dev0: /dev/uinput
 dev1: /dev/uhid
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
 lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
-lxc.mount.entry: /dev/input dev/input none bind,optional,create=dir
 lxc.mount.entry: /run/udev mnt/udev none bind,optional,create=dir
+lxc.mount.entry: /dev mnt/dev none bind,optional,create=dir
 ----
 
 save the file, exit, and restart your LXC.
@@ -485,13 +441,14 @@ Your LXC is good to go, complete the installation based on the GPU following the
 
 [WARNING,caption=Remarks]
 ====
-When creating your docker-compose.yml don't forget to modify the volume mapping for `/run/udev` path, as we mounted it on `/mnt/udev` inside our LXC
+When creating your docker-compose.yml don't forget to modify the volume mappings for `/run/udev` and `/dev` path, as we mounted it on `/mnt/udev` and `/mnt/dev` inside our LXC
 ====
 
 [source]
 ----
 volumes:
     - /mnt/udev:/run/udev:rw
+    - /mnt/dev:/dev:rw
 ----
 
 And if you have a multi GPU setup, don't forget to set the below env variable
