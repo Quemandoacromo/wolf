@@ -103,11 +103,24 @@ docker::Container tag_invoke(value_to_tag<docker::Container>, value const &jv) {
         logs::log(logs::warning, "[DOCKER] Invalid port binding {} skipping..", port.key());
         continue;
       }
-      auto private_port = port.value().is_null() // Can be null in Podman
-                              ? std::stoi(settings[0].data())
-                              : std::stoi(port.value().as_array()[0].at("HostPort").as_string().data());
+
+      int private_port = -1;
+      try {
+        private_port = port.value().is_null() // Can be null in Podman
+                           ? std::stoi(settings[0].data())
+                           : std::stoi(port.value().as_array()[0].at("HostPort").as_string().data());
+      } catch (...) {
+        logs::log(logs::debug, "[DOCKER] Invalid private binding {} skipping..", serialize(port.value()));
+      }
+
+      int public_port = -1;
+      try {
+        public_port = std::stoi(settings[0].data());
+      } catch (...) {
+        logs::log(logs::debug, "[DOCKER] Invalid public port binding {} skipping..", settings[0]);
+      }
       ports.push_back(docker::Port{.private_port = private_port,
-                                   .public_port = std::stoi(settings[0].data()),
+                                   .public_port = public_port,
                                    .type = settings[1] == "tcp" ? docker::TCP : docker::UDP});
     }
   }
