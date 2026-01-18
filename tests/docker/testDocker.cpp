@@ -373,3 +373,230 @@ TEST_CASE("Parse nulls in json reply", "[DOCKER]") {
   REQUIRE(parsed_container.env.size() == 14);
   REQUIRE_THAT(parsed_container.env, Contains("XDG_RUNTIME_DIR=/tmp/pulse/"));
 }
+
+TEST_CASE("Docker 29.1.5 fail to parse", "[DOCKER]") {
+
+  auto reply = R""""(
+{
+  "Id": "f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475",
+  "Created": "2026-01-18T12:41:53.138026437Z",
+  "Path": "/start.sh",
+  "Args": [],
+  "State": {
+    "Status": "running",
+    "Running": true,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 11595,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-01-18T12:42:04.228685634Z",
+    "FinishedAt": "0001-01-01T00:00:00Z"
+  },
+  "Image": "sha256:9f4c90bea645ad49cda9734f48ca847f7fd5558bb3734bcfca8351984b4e78e4",
+  "ResolvConfPath": "/var/lib/docker/containers/f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475/resolv.conf",
+  "HostnamePath": "/var/lib/docker/containers/f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475/hostname",
+  "HostsPath": "/var/lib/docker/containers/f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475/hosts",
+  "LogPath": "/var/lib/docker/containers/f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475/f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475-json.log",
+  "Name": "container",
+  "RestartCount": 0,
+  "Driver": "overlay2",
+  "Platform": "linux",
+  "MountLabel": "",
+  "ProcessLabel": "",
+  "AppArmorProfile": "",
+  "ExecIDs": null,
+  "HostConfig": {
+    "Binds": null,
+    "ContainerIDFile": "",
+    "LogConfig": {
+      "Type": "json-file",
+      "Config": {}
+    },
+    "NetworkMode": "asdf_default",
+    "PortBindings": {
+      "22/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": ""
+        }
+      ]
+    },
+    "RestartPolicy": {
+      "Name": "unless-stopped",
+      "MaximumRetryCount": 0
+    },
+    "AutoRemove": false,
+    "VolumeDriver": "",
+    "VolumesFrom": null,
+    "ConsoleSize": [
+      0,
+      0
+    ],
+    "CapAdd": null,
+    "CapDrop": null,
+    "CgroupnsMode": "private",
+    "Dns": null,
+    "DnsOptions": null,
+    "DnsSearch": null,
+    "ExtraHosts": [],
+    "GroupAdd": null,
+    "IpcMode": "private",
+    "Cgroup": "",
+    "Links": null,
+    "OomScoreAdj": 0,
+    "PidMode": "",
+    "Privileged": false,
+    "PublishAllPorts": false,
+    "ReadonlyRootfs": false,
+    "SecurityOpt": null,
+    "UTSMode": "",
+    "UsernsMode": "",
+    "ShmSize": 67108864,
+    "Runtime": "runc",
+    "Isolation": "",
+    "CpuShares": 0,
+    "Memory": 0,
+    "NanoCpus": 0,
+    "CgroupParent": "",
+    "BlkioWeight": 0,
+    "BlkioWeightDevice": null,
+    "BlkioDeviceReadBps": null,
+    "BlkioDeviceWriteBps": null,
+    "BlkioDeviceReadIOps": null,
+    "BlkioDeviceWriteIOps": null,
+    "CpuPeriod": 0,
+    "CpuQuota": 0,
+    "CpuRealtimePeriod": 0,
+    "CpuRealtimeRuntime": 0,
+    "CpusetCpus": "",
+    "CpusetMems": "",
+    "Devices": null,
+    "DeviceCgroupRules": null,
+    "DeviceRequests": null,
+    "MemoryReservation": 0,
+    "MemorySwap": 0,
+    "MemorySwappiness": null,
+    "OomKillDisable": null,
+    "PidsLimit": null,
+    "Ulimits": null,
+    "CpuCount": 0,
+    "CpuPercent": 0,
+    "IOMaximumIOps": 0,
+    "IOMaximumBandwidth": 0,
+    "MaskedPaths": [
+      "/proc/acpi",
+      "/proc/asound",
+      "/proc/interrupts",
+      "/proc/kcore",
+      "/proc/keys",
+      "/proc/latency_stats",
+      "/proc/sched_debug",
+      "/proc/scsi",
+      "/proc/timer_list",
+      "/proc/timer_stats",
+      "/sys/devices/virtual/powercap",
+      "/sys/firmware"
+    ],
+    "ReadonlyPaths": [
+      "/proc/bus",
+      "/proc/fs",
+      "/proc/irq",
+      "/proc/sys",
+      "/proc/sysrq-trigger"
+    ]
+  },
+  "GraphDriver": {
+    "Data": {
+      "ID": "f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475",
+      "LowerDir": "/var/lib/docker/overlay2/3899dd27fb7e3a5a995f148694d66eea59f48a1f2c9fb6fcf67107d301b0e253-init/diff:/var/lib/docker/overlay2/fvbc55p9428yvudjlw92aqgex/diff:/var/lib/docker/overlay2/ptm6w2ejvl2z5b8nrcy42xswf/diff:/var/lib/docker/overlay2/8u7yyvdnlt527szmdlhokl0z7/diff:/var/lib/docker/overlay2/jmvvk3wnj3t2nyg3tke36bi5x/diff:/var/lib/docker/overlay2/mn5vq1zuajn6actpei8am02vr/diff:/var/lib/docker/overlay2/bf105daba7f0975f6e43cd8793e0c54bb9387347ab70554baefb09c8d3d9e87f/diff",
+      "MergedDir": "/var/lib/docker/overlay2/3899dd27fb7e3a5a995f148694d66eea59f48a1f2c9fb6fcf67107d301b0e253/merged",
+      "UpperDir": "/var/lib/docker/overlay2/3899dd27fb7e3a5a995f148694d66eea59f48a1f2c9fb6fcf67107d301b0e253/diff",
+      "WorkDir": "/var/lib/docker/overlay2/3899dd27fb7e3a5a995f148694d66eea59f48a1f2c9fb6fcf67107d301b0e253/work"
+    },
+    "Name": "overlay2"
+  },
+  "Mounts": [],
+  "Config": {
+    "Hostname": "f77f31b6fe9f",
+    "Domainname": "",
+    "User": "",
+    "AttachStdin": false,
+    "AttachStdout": true,
+    "AttachStderr": true,
+    "ExposedPorts": {
+      "22/tcp": {}
+    },
+    "Tty": false,
+    "OpenStdin": false,
+    "StdinOnce": false,
+    "Env": [
+      "SSH_PASSWORD=root",
+      "DOCKER_HOST=tcp://dind:2375",
+      "SSH_USER=root",
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "DEBIAN_FRONTEND=noninteractive"
+    ],
+    "Cmd": [
+      "/start.sh"
+    ],
+    "Image": "localagi-sshbox",
+    "Volumes": null,
+    "WorkingDir": "",
+    "Entrypoint": null,
+    "Labels": {}
+  },
+  "NetworkSettings": {
+    "SandboxID": "10ed32cdb92298a2ed30b65acd0f401feb029a1f2808814f4d96c67703f790a4",
+    "SandboxKey": "/var/run/docker/netns/10ed32cdb922",
+    "Ports": {
+      "22/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "32769"
+        },
+        {
+          "HostIp": "::",
+          "HostPort": "32769"
+        }
+      ]
+    },
+    "Networks": {
+      "localagi_default": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": [
+          "localagi-sshbox-1",
+          "sshbox"
+        ],
+        "DriverOpts": null,
+        "GwPriority": 0,
+        "NetworkID": "25f4b3255fc26ee84d7bcda5d9bff57e44bf51546272a4d1701f76d0d9e06116",
+        "EndpointID": "541f2b1a12fde7b709c9f4d52e79dedfed49cd7ea712243ba59d1725fc60d92d",
+        "Gateway": "172.20.0.1",
+        "IPAddress": "172.20.0.5",
+        "MacAddress": "ca:55:c8:2d:45:6e",
+        "IPPrefixLen": 16,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "DNSNames": [
+          "localagi-sshbox-1",
+          "sshbox",
+          "f77f31b6fe9f"
+        ]
+      }
+    }
+  }
+})"""";
+  auto json = utils::parse_json(reply);
+  auto parsed_container = boost::json::value_to<docker::Container>(json);
+
+  REQUIRE_THAT(parsed_container.id, Equals("f77f31b6fe9fadfdb0efe7eec4d576cee82022c6bc21077a663b700e5e3e7475"));
+  REQUIRE(parsed_container.ports.size() == 1);
+  REQUIRE(parsed_container.ports[0].private_port == -1); // This was causing issues because we get an empty string now
+  REQUIRE(parsed_container.ports[0].public_port == 22);
+  REQUIRE(parsed_container.ports[0].type == docker::TCP);
+}
