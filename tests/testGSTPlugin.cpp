@@ -498,3 +498,32 @@ TEST_CASE_METHOD(GStreamerTestsFixture, "Audio RTP packet creation", "[GSTPlugin
     }
   }
 }
+
+TEST_CASE_METHOD(GStreamerTestsFixture, "Audio RTP without encryption", "[GSTPlugin]") {
+  auto rtpmoonlightpay = std::shared_ptr<gst_rtp_moonlight_pay_audio>(
+      (gst_rtp_moonlight_pay_audio *)g_object_new(gst_TYPE_rtp_moonlight_pay_audio, nullptr),
+      g_object_unref);
+
+  rtpmoonlightpay->encrypt = false;
+
+  auto payload_str = "TUNZ TUNZ TUMP TUMP!"s;
+  auto payload = gst_buffer_new_and_fill(payload_str.size(), payload_str.c_str());
+  auto rtp_packets = audio::split_into_rtp(rtpmoonlightpay.get(), payload);
+
+  REQUIRE(gst_buffer_list_length(rtp_packets) == 1);
+  REQUIRE(rtpmoonlightpay->cur_seq_number == 1);
+  auto first_pkt = gst_buffer_list_get(rtp_packets, 0);
+
+  SECTION("First packet") {
+    auto rtp_packet = get_rtp_audio_from_buf(first_pkt);
+
+    REQUIRE(rtp_packet->rtp.ssrc == 0);
+    REQUIRE(rtp_packet->rtp.packetType == 97);
+    REQUIRE(rtp_packet->rtp.header == 0x80);
+    REQUIRE(rtp_packet->rtp.sequenceNumber == 0);
+    REQUIRE(rtp_packet->rtp.timestamp == 0);
+
+    auto rtp_payload = gst_buffer_copy_content(first_pkt, sizeof(audio::AudioRTPHeaders));
+    REQUIRE_THAT(std::string(rtp_payload.begin(), rtp_payload.end()), Equals(payload_str));
+  }
+}
