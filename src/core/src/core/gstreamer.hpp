@@ -32,6 +32,11 @@ static void pipeline_eos_handler(GstBus *bus, GstMessage *message, gpointer data
  * Sends a custom message in the pipeline
  */
 static void send_message(GstElement *recipient, GstStructure *message) {
+  if (!recipient) {
+    // Avoid throwing errors when we don't have a recipient
+    // This might happen when we have the control stream connected, but the wayland display isn't ready yet
+    return;
+  }
   auto gst_ev = gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, message);
   gst_element_send_event(recipient, gst_ev);
 }
