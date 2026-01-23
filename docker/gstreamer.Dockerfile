@@ -75,7 +75,7 @@ RUN <<_GSTREAMER_INSTALL
         -Dgst-plugins-bad:x265=enabled  \
         -Dgst-plugins-bad:qsv=enabled \
         -Dgst-plugins-bad:aom=enabled \
-        -Dgst-plugin-bad:nvcodec=enabled  \
+        -Dgst-plugins-bad:nvcodec=enabled  \
         -Dgst-plugins-base:gl=enabled  \
         -Dgstreamer-vaapi:x11=disabled \
         -Dgst-plugins-base:gl_winsys=wayland,egl,gbm,surfaceless  \
