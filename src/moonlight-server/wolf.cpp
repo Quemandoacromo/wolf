@@ -227,7 +227,7 @@ void run() {
   // PulseAudio sink-input router (hostname -> session_id -> virtual_sink_<session>)
   auto pulse_router_state = std::make_shared<audio::PulseAudioRouterState>();
   pulse_router_state->pulse_server = audio_server->server;
-  auto pulse_router_handlers = audio::setup_pulseaudio_router_handlers(app_state, pulse_router_state);
+  auto pulse_router_handlers = audio::setup_pulseaudio_router_handlers(local_state, pulse_router_state);
   // Setup event handlers for Moonlight related events (Start/Stop stream, hotplug, etc)
   auto moonlight_sess_handlers = sessions::setup_moonlight_handlers(local_state, runtime_dir, audio_server);
   // Setup event handlers for player Lobbies
