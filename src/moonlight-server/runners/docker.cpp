@@ -199,12 +199,12 @@ void RunDocker::run(std::string_view session_id,
     std::string inspected_hostname;
     if (auto inspected = docker_api.get_by_id(container_id)) {
       inspected_hostname = inspected->hostname;
-      this->ev_bus->fire_event(immer::box<events::DockerContainerCreated>(
+      this->ev_bus->fire_event(immer::box<events::DockerContainerCreated>{
           events::DockerContainerCreated{
               . = container_id,
               .hostname = inspected->hostname,
               .session_id = std::string(session_id),
-          }));
+          }});
     } else {
       logs::log(logs::warning, "[DOCKER] Unable to inspect container {} for hostname", container_id);
     }
@@ -285,12 +285,12 @@ void RunDocker::run(std::string_view session_id,
     logs::log(logs::debug, "[DOCKER] Container logs: \n{}", docker_api.get_logs(container_id));
     logs::log(logs::debug, "[DOCKER] Stopping container: {}", docker_container->name);
 
-    this->ev_bus->fire_event(immer::box<events::DockerContainerStopped>(
+    this->ev_bus->fire_event(immer::box<events::DockerContainerStopped>{
     events::DockerContainerStopped{
         .container_id = container_id,
         .hostname = inspected_hostname,
         .session_id = std::string(session_id),
-    }));
+    }});
     
     if (const auto env = utils::get_env("WOLF_STOP_CONTAINER_ON_EXIT")) {
       if (std::string(env) == "TRUE") {
