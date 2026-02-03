@@ -201,7 +201,7 @@ void RunDocker::run(std::string_view session_id,
       inspected_hostname = inspected->hostname;
       this->ev_bus->fire_event(immer::box<events::DockerContainerCreated>{
           events::DockerContainerCreated{
-              . = container_id,
+              .container_id = container_id,
               .hostname = inspected->hostname,
               .session_id = std::string(session_id),
           }});
