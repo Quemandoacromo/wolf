@@ -4,6 +4,7 @@
 #include <helpers/logger.hpp>
 
 #include <pulse/pulseaudio.h>
+#include <state/sessions.hpp>
 
 #include <utility>
 
