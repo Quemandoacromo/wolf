@@ -1,4 +1,5 @@
 #include "pulse_router.hpp"
+#include <immer/vector_transient.hpp>
 
 #include <core/audio.hpp>
 #include <helpers/logger.hpp>
