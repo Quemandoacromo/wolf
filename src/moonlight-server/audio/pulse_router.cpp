@@ -20,7 +20,7 @@ setup_pulseaudio_router_handlers(const immer::box<state::AppState>& app_state,
     logs::log(logs::warning, "[PULSE_ROUTER] No router state provided, cannot setup handlers");
     return handlers.persistent();
   }
-  if (!app_state || !app_state->event_bus) {
+  if (!app_state->event_bus) {
     logs::log(logs::warning, "[PULSE_ROUTER] No event bus provided, cannot setup handlers");
     return handlers.persistent();
   }
