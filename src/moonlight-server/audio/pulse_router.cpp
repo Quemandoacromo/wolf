@@ -220,4 +220,3 @@ std::optional<std::string> PulseAudioRouter::target_sink_for_host_(std::string_v
 }
 
 } // namespace wolf::core::audio
-```0
