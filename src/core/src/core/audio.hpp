@@ -55,6 +55,8 @@ struct VSink {
  */
 bool connected(const std::shared_ptr<Server> &server);
 
+void queue_op(const std::shared_ptr<Server>& server, const std::function<void()>& op);
+
 std::shared_ptr<VSink> create_virtual_sink(const std::shared_ptr<Server> &server, const AudioDevice &device);
 
 void delete_virtual_sink(const std::shared_ptr<Server> &server, const std::shared_ptr<VSink> &vsink);
