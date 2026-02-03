@@ -1,4 +1,5 @@
 #include <api/api.hpp>
+#include <audio/pulse_router.hpp>
 #include <boost/asio.hpp>
 #include <chrono>
 #include <control/control.hpp>
@@ -223,6 +224,13 @@ void run() {
   }).detach();
 
   auto audio_server = setup_audio_server(local_state->host->host_xdg_runtime_dir, runtime_dir);
+  // PulseAudio sink-input router (hostname -> session_id -> virtual_sink_<session>)
+  std::shared_ptr<audio::PulseAudioRouter> pulse_router;
+  if (audio_server && audio_server->server) {
+    logs::log(logs::info, "[PULSE_ROUTER] Starting PulseAudio router");
+    pulse_router = std::make_shared<audio::PulseAudioRouter>(local_state->event_bus, audio_server->server);
+    pulse_router->start();
+  }
   // Setup event handlers for Moonlight related events (Start/Stop stream, hotplug, etc)
   auto moonlight_sess_handlers = sessions::setup_moonlight_handlers(local_state, runtime_dir, audio_server);
   // Setup event handlers for player Lobbies
