@@ -13,6 +13,9 @@
 namespace wolf::core::audio {
 
 typedef struct Server Server;
+struct pa_context; 
+
+pa_context* context(const std::shared_ptr<Server>& server);
 
 std::shared_ptr<Server> connect(std::string_view server = {});
 
