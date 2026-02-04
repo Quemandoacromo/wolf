@@ -119,18 +119,16 @@ void PulseAudioRouterState::enable_pulse_subscribe() {
   });
 }
 
-void PulseAudioRouterState::pa_subscribe_cb(pa_context* c, unsigned int t, unsigned int idx, void* userdata) {
+void PulseAudioRouterState::pa_subscribe_cb(pa_context* c, pa_subscription_event_type_t t, uint32_t idx, void* userdata) {
   auto* self = static_cast<PulseAudioRouterState*>(userdata);
   if (!self) return;
 
-  const auto ev = static_cast<pa_subscription_event_type_t>(t);
-  const auto facility = ev & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
-  const auto type = ev & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
+  const auto facility = t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
+  const auto type     = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
 
   if (facility != PA_SUBSCRIPTION_EVENT_SINK_INPUT) return;
   if (type != PA_SUBSCRIPTION_EVENT_NEW && type != PA_SUBSCRIPTION_EVENT_CHANGE) return;
 
-  // Query full info for this sink-input index
   auto op = pa_context_get_sink_input_info(c, idx, &PulseAudioRouterState::pa_sink_input_info_cb, userdata);
   if (op) pa_operation_unref(op);
 }
