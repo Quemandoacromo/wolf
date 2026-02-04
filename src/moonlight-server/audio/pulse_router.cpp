@@ -63,10 +63,9 @@ void PulseAudioRouterState::rescan() {
 void PulseAudioRouterState::on_container_created(const events::DockerContainerCreated& ev) {
   if (ev.hostname.empty() || ev.session_id.empty()) return;
 
-  {
-    std::lock_guard<std::mutex> lk(map_mu);
-    host_to_session[ev.hostname] = ev.session_id;
-  }
+  host_to_session.update([&](auto m) {
+    return m.set(ev.hostname, ev.session_id);
+  });
 
   logs::log(logs::debug,
             "[PULSE_ROUTER] Map add host='{}' -> session='{}' (container_id='{}')",
@@ -81,16 +80,9 @@ void PulseAudioRouterState::on_container_created(const events::DockerContainerCr
 void PulseAudioRouterState::on_container_stopped(const events::DockerContainerStopped& ev) {
   if (ev.hostname.empty()) return;
 
-  {
-    std::lock_guard<std::mutex> lk(map_mu);
-    auto it = host_to_session.find(ev.hostname);
-    if (it != host_to_session.end()) {
-      // Optional: only erase if session matches (guards against hostname reuse)
-      if (ev.session_id.empty() || it->second == ev.session_id) {
-        host_to_session.erase(it);
-      }
-    }
-  }
+  host_to_session.update([&](auto m) {
+    return m.erase(ev.hostname);
+  });
 
   logs::log(logs::debug,
             "[PULSE_ROUTER] Map del host='{}' session='{}' (container_id='{}')",
@@ -164,12 +156,11 @@ void PulseAudioRouterState::route_sink_input_(pa_context* c, const pa_sink_input
 }
 
 std::optional<std::string> PulseAudioRouterState::target_sink_for_host_(std::string_view host) const {
-  std::lock_guard<std::mutex> lk(map_mu);
-  auto it = host_to_session.find(std::string(host));
-  if (it == host_to_session.end()) return std::nullopt;
-  if (it->second.empty()) return std::nullopt;
-
-  return sink_prefix + it->second;
+  auto m = host_to_session.load();
+  if (auto session = m->find(std::string(host))) {
+    return sink_prefix + *session;
+  }
+  return std::nullopt;
 }
 
 } // namespace wolf::core::audio

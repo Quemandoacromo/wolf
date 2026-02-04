@@ -28,8 +28,7 @@ struct PulseAudioRouterState {
   std::string sink_prefix = "virtual_sink_";
 
   // hostname -> session_id
-  mutable std::mutex map_mu;
-  std::unordered_map<std::string, std::string> host_to_session;
+  immer::atom<immer::map<std::string, std::string>> host_to_session{immer::map<std::string, std::string>{}};
 
   // Pulse subscribe / callbacks
   void enable_pulse_subscribe();
