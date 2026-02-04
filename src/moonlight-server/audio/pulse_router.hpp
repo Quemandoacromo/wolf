@@ -10,6 +10,8 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <pulse/pulseaudio.h>
+
 struct pa_context;
 struct pa_sink_input_info;
 
@@ -34,7 +36,7 @@ struct PulseAudioRouterState {
   void disable_pulse_subscribe();
   void rescan();
 
-  static void pa_subscribe_cb(pa_context* c, unsigned int t, unsigned int idx, void* userdata);
+  static void pa_subscribe_cb(pa_context* c, pa_subscription_event_type_t t, uint32_t idx, void* userdata);
   static void pa_sink_input_info_cb(pa_context* c, const pa_sink_input_info* info, int eol, void* userdata);
 
   void on_container_created(const events::DockerContainerCreated& ev);
