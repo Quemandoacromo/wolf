@@ -24,8 +24,8 @@ setup_pulseaudio_router_handlers(const immer::box<state::AppState>& app_state,
     logs::log(logs::warning, "[PULSE_ROUTER] No event bus provided, cannot setup handlers");
     return handlers.persistent();
   }
-  if (!state->pulse_server || !state->pulse_server->ctx) {
-    logs::log(logs::warning, "[PULSE_ROUTER] No Pulse server/context provided, cannot setup handlers");
+  if (!state->pulse_server) {
+    logs::log(logs::warning, "[PULSE_ROUTER] No Pulse server provided, cannot setup handlers");
     return handlers.persistent();
   }
 
@@ -50,11 +50,11 @@ setup_pulseaudio_router_handlers(const immer::box<state::AppState>& app_state,
 // --- PulseAudioRouterState implementation ------------------------------------
 
 void PulseAudioRouterState::rescan() {
-  if (!pulse_server || !pulse_server->ctx) return;
+  if (!pulse_server) return;
 
   audio::queue_op(pulse_server, [this]() {
-    if (!pulse_server || !pulse_server->ctx) return;
-    auto* c = pulse_server->ctx;
+    if (!pulse_server) return;
+    auto* c = audio::context(pulse_server);
     auto op = pa_context_get_sink_input_info_list(c, &PulseAudioRouterState::pa_sink_input_info_cb, this);
     if (op) pa_operation_unref(op);
   });
@@ -100,11 +100,11 @@ void PulseAudioRouterState::on_container_stopped(const events::DockerContainerSt
 }
 
 void PulseAudioRouterState::enable_pulse_subscribe() {
-  if (!pulse_server || !pulse_server->ctx) return;
+  if (!pulse_server) return;
 
   audio::queue_op(pulse_server, [this]() {
-    if (!pulse_server || !pulse_server->ctx) return;
-    auto* c = pulse_server->ctx;
+    if (!pulse_server) return;
+    auto* c = audio::context(pulse_server);
 
     pa_context_set_subscribe_callback(c, &PulseAudioRouterState::pa_subscribe_cb, this);
 
