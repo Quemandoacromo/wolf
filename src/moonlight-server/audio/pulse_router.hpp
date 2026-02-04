@@ -31,8 +31,6 @@ struct PulseAudioRouterState {
   immer::atom<immer::map<std::string, std::string>> host_to_session{immer::map<std::string, std::string>{}};
 
   // Pulse subscribe / callbacks
-  void enable_pulse_subscribe();
-  void disable_pulse_subscribe();
   void rescan();
 
   static void pa_subscribe_cb(pa_context* c, pa_subscription_event_type_t t, uint32_t idx, void* userdata);
