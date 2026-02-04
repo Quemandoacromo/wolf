@@ -10,10 +10,11 @@
 #include <string>
 #include <vector>
 
+struct pa_context; 
+
 namespace wolf::core::audio {
 
 typedef struct Server Server;
-struct pa_context; 
 
 pa_context* context(const std::shared_ptr<Server>& server);
 
