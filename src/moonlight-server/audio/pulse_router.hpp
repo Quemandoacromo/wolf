@@ -42,8 +42,8 @@ struct PulseAudioRouterState {
   void on_container_created(const events::DockerContainerCreated& ev);
   void on_container_stopped(const events::DockerContainerStopped& ev);
 
-  void on_virtual_sink_created(const events::VirtualAudioSinkCreated& ev);
-
+  void on_virtual_sink_created(const events::VirtualAudioSinkCreated& ev, std::shared_ptr<PulseAudioRouterState> state_sp);
+  static void pa_sink_info_by_name_cb(pa_context* c, const pa_sink_info* info, int eol, void* userdata);
   void route_sink_input_(pa_context* c, const pa_sink_input_info* info);
 };
 

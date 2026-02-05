@@ -45,7 +45,7 @@ setup_pulseaudio_router_handlers(const immer::box<state::AppState>& app_state,
 
   handlers.push_back(app_state->event_bus->register_handler<immer::box<events::VirtualAudioSinkCreated>>(
       [state](const immer::box<events::VirtualAudioSinkCreated>& ev) {
-        state->on_virtual_sink_created(*ev);
+        state->on_virtual_sink_created(*ev, state);
       }));
 
   // Subscribe to sink-input events and do an initial scan
@@ -112,13 +112,23 @@ void PulseAudioRouterState::on_container_stopped(const events::DockerContainerSt
 
 }
 
-void PulseAudioRouterState::on_virtual_sink_created(const events::VirtualAudioSinkCreated& ev) {
+namespace {
+struct SinkResolveCtx {
+  std::shared_ptr<wolf::core::audio::PulseAudioRouterState> state;
+  std::string session_id;
+  std::string sink_name;
+};
+} // namespace
+
+void PulseAudioRouterState::on_virtual_sink_created(const events::VirtualAudioSinkCreated& ev, std::shared_ptr<PulseAudioRouterState> state_sp) {
   if (ev.session_id.empty()) return;
 
+  // the sink index turns out to be the owner module index, which cannot be used to route sink
+  /*
   session_to_sink_idx.update([&](auto m) {
     return m.set(ev.session_id, ev.sink_index);
   });
-
+  
   logs::log(logs::debug,
             "[PULSE_ROUTER] Sink ready session='{}' sink='{}' idx={}",
             ev.session_id,
@@ -127,6 +137,57 @@ void PulseAudioRouterState::on_virtual_sink_created(const events::VirtualAudioSi
 
   // Fix races: sink-input may already exist, or docker mapping may already exist
   rescan();
+  */
+  if (!state_sp) return;
+
+  audio::queue_op(pulse_server, [state_sp,
+                                 session_id = ev.session_id,
+                                 sink_name = ev.sink_name]() {
+    if (!state_sp->pulse_server || !audio::context(state_sp->pulse_server)) return;
+
+    auto* ctx = new SinkResolveCtx{
+        .state = state_sp,
+        .session_id = session_id,
+        .sink_name = sink_name,
+    };
+
+    auto* c = audio::context(state_sp->pulse_server);
+    auto op = pa_context_get_sink_info_by_name(
+        c,
+        ctx->sink_name.c_str(),
+        &PulseAudioRouterState::pa_sink_info_by_name_cb,
+        ctx);
+    if (op) pa_operation_unref(op);
+  });
+}
+
+// function necessary to resolve the real sink index
+void PulseAudioRouterState::pa_sink_info_by_name_cb(pa_context* /*c*/,
+                                                    const pa_sink_info* info,
+                                                    int eol,
+                                                    void* userdata) {
+  auto* ctx = static_cast<SinkResolveCtx*>(userdata);
+  if (!ctx) return;
+
+  if (eol) { // end of list / failure path
+    delete ctx;
+    return;
+  }
+  if (!info) return;
+
+  const uint32_t sink_idx = info->index;
+
+  ctx->state->session_to_sink_idx.update([&](auto m) {
+    return m.set(ctx->session_id, sink_idx);
+  });
+
+  logs::log(logs::debug,
+            "[PULSE_ROUTER] Resolved sink '{}' -> idx={} for session '{}'",
+            ctx->sink_name,
+            sink_idx,
+            ctx->session_id);
+
+  ctx->state->rescan();
 }
 
 void PulseAudioRouterState::enable_pulse_subscribe() {
