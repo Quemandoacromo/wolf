@@ -2,6 +2,7 @@
 #include <immer/map_transient.hpp>
 #include <platforms/hw.hpp>
 #include <sessions/handlers.hpp>
+#include <sessions/common.hpp>
 
 namespace wolf::core::sessions {
 
@@ -19,7 +20,7 @@ void start_runner(std::shared_ptr<events::Runner> runner,
   full_env.set("XDG_RUNTIME_DIR", args->xdg_runtime_dir);
   full_env.set("WOLF_SESSION_ID", args->session_id);
 
-  auto pulse_sink_name = fmt::format("virtual_sink_{}", args->session_id);
+  auto pulse_sink_name = fmt::format("{}{}", VIRTUAL_SINK_PREFIX, args->session_id);
   auto audio_server_name = args->audio_server ? audio::get_server_name(args->audio_server->server) : "";
   // TODO: properly separate XDG_RUNTIME_DIR from <pulse socket path>
   // for example on my dev machine it's ${XDG_RUNTIME_DIR}/pulse/native

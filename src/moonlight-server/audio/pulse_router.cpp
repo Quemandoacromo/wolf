@@ -6,8 +6,11 @@
 
 #include <pulse/pulseaudio.h>
 #include <state/sessions.hpp>
+#include <sessions/common.hpp>
 
 #include <utility>
+
+using wolf::core::sessions::VIRTUAL_SINK_PREFIX;
 
 namespace wolf::core::audio {
 
@@ -148,7 +151,7 @@ void PulseAudioRouterState::route_sink_input_(pa_context* c, const pa_sink_input
   auto op = pa_context_move_sink_input_by_name(c, info->index, target->c_str(), nullptr, nullptr);
   if (op) pa_operation_unref(op);
 
-  logs::log(logs::debug,
+  logs::log(logs::info,
             "[PULSE_ROUTER] Move sink-input={} host='{}' -> '{}'",
             info->index,
             host,
@@ -158,7 +161,7 @@ void PulseAudioRouterState::route_sink_input_(pa_context* c, const pa_sink_input
 std::optional<std::string> PulseAudioRouterState::target_sink_for_host_(std::string_view host) const {
   auto m = host_to_session.load();
   if (auto session = m->find(std::string(host))) {
-    return sink_prefix + *session;
+    return std::string(VIRTUAL_SINK_PREFIX) + *session;
   }
   return std::nullopt;
 }
