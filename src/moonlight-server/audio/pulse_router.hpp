@@ -29,6 +29,9 @@ struct PulseAudioRouterState {
   // hostname -> session_id
   immer::atom<immer::map<std::string, std::string>> host_to_session{immer::map<std::string, std::string>{}};
 
+  // session_id -> sink_index (from VirtualAudioSinkCreated)
+  immer::atom<immer::map<std::string, uint32_t>> session_to_sink_idx{immer::map<std::string, uint32_t>{}};
+
   // Pulse subscribe / callbacks
   void enable_pulse_subscribe();
   void rescan();
@@ -39,8 +42,9 @@ struct PulseAudioRouterState {
   void on_container_created(const events::DockerContainerCreated& ev);
   void on_container_stopped(const events::DockerContainerStopped& ev);
 
+  void on_virtual_sink_created(const events::VirtualAudioSinkCreated& ev);
+
   void route_sink_input_(pa_context* c, const pa_sink_input_info* info);
-  std::optional<std::string> target_sink_for_host_(std::string_view host) const;
 };
 
 /**

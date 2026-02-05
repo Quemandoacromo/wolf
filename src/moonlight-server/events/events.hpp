@@ -283,6 +283,12 @@ struct AudioSession {
   wolf::core::audio::AudioMode audio_mode;
 };
 
+struct VirtualAudioSinkCreated {
+  std::string session_id;
+  uint32_t sink_index;
+  std::string sink_name;
+};
+
 struct IDRRequestEvent {
   // A unique ID that identifies this session
   std::size_t session_id;
@@ -354,7 +360,8 @@ using EventBusHandlers = dp::handler_registration<immer::box<PlugDeviceEvent>,
                                                   immer::box<StopLobbyEvent>,
                                                   immer::box<SwitchStreamProducerEvents>,
                                                   immer::box<DockerContainerCreated>,
-                                                  immer::box<DockerContainerStopped>>;
+                                                  immer::box<DockerContainerStopped>,
+                                                  immer::box<VirtualAudioSinkCreated>>;
 using EventBusType = dp::event_bus<immer::box<PlugDeviceEvent>,
                                    immer::box<PairSignal>,
                                    immer::box<UnplugDeviceEvent>,
@@ -375,7 +382,8 @@ using EventBusType = dp::event_bus<immer::box<PlugDeviceEvent>,
                                    immer::box<StopLobbyEvent>,
                                    immer::box<SwitchStreamProducerEvents>,
                                    immer::box<DockerContainerCreated>,
-                                   immer::box<DockerContainerStopped>>;
+                                   immer::box<DockerContainerStopped>,
+                                   immer::box<VirtualAudioSinkCreated>>;
 using EventsVariant = std::variant<immer::box<PlugDeviceEvent>,
                                    immer::box<PairSignal>,
                                    immer::box<UnplugDeviceEvent>,
@@ -396,7 +404,8 @@ using EventsVariant = std::variant<immer::box<PlugDeviceEvent>,
                                    immer::box<StopLobbyEvent>,
                                    immer::box<SwitchStreamProducerEvents>,
                                    immer::box<DockerContainerCreated>,
-                                   immer::box<DockerContainerStopped>>;
+                                   immer::box<DockerContainerStopped>,
+                                   immer::box<VirtualAudioSinkCreated>>;
 
 /**
  * A StreamSession is created when a Moonlight user call `launch`

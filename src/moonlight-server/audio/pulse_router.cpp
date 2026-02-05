@@ -43,6 +43,11 @@ setup_pulseaudio_router_handlers(const immer::box<state::AppState>& app_state,
         if (state) state->on_container_stopped(*ev);
       }));
 
+  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::VirtualAudioSinkCreated>>(
+      [state](const immer::box<events::VirtualAudioSinkCreated>& ev) {
+        state->on_virtual_sink_created(*ev);
+      }));
+
   // Subscribe to sink-input events and do an initial scan
   state->enable_pulse_subscribe();
 
@@ -83,15 +88,45 @@ void PulseAudioRouterState::on_container_created(const events::DockerContainerCr
 void PulseAudioRouterState::on_container_stopped(const events::DockerContainerStopped& ev) {
   if (ev.hostname.empty()) return;
 
+  std::optional<std::string> removed_session;
+
   host_to_session.update([&](auto m) {
-    return m.erase(ev.hostname);
+    if (auto v = m.find(ev.hostname)) {         // hostname -> session_id
+      // optionally guard against hostname reuse:
+      if (ev.session_id.empty() || *v == ev.session_id) {
+        removed_session = *v;
+        return m.erase(ev.hostname);
+      }
+    }
+    return m;
+  });
+
+  if (removed_session && !removed_session->empty()) {
+    session_to_sink_idx.update([&](auto m) { return m.erase(*removed_session); });
+
+    logs::log(logs::debug,
+              "[PULSE_ROUTER] Removed mappings host='{}' session='{}'",
+              ev.hostname,
+              *removed_session);
+  }
+
+}
+
+void PulseAudioRouterState::on_virtual_sink_created(const events::VirtualAudioSinkCreated& ev) {
+  if (ev.session_id.empty()) return;
+
+  session_to_sink_idx.update([&](auto m) {
+    return m.set(ev.session_id, ev.sink_index);
   });
 
   logs::log(logs::debug,
-            "[PULSE_ROUTER] Map del host='{}' session='{}' (container_id='{}')",
-            ev.hostname,
+            "[PULSE_ROUTER] Sink ready session='{}' sink='{}' idx={}",
             ev.session_id,
-            ev.container_id);
+            ev.sink_name,
+            ev.sink_index);
+
+  // Fix races: sink-input may already exist, or docker mapping may already exist
+  rescan();
 }
 
 void PulseAudioRouterState::enable_pulse_subscribe() {
@@ -145,25 +180,41 @@ void PulseAudioRouterState::route_sink_input_(pa_context* c, const pa_sink_input
   const char* host = pa_proplist_gets(info->proplist, "application.process.host");
   if (!host || host[0] == '\0') return;
 
-  auto target = target_sink_for_host_(host);
-  if (!target.has_value()) return;
+  // host -> session_id
+  std::optional<std::string> session_id;
+  {
+    auto box = host_to_session.load();
+    const auto& m = *box;
+    if (auto v = m.find(std::string(host))) {
+      session_id = *v; // immer::map find returns value ptr
+    }
+  }
+  if (!session_id || session_id->empty()) return;
 
-  auto op = pa_context_move_sink_input_by_name(c, info->index, target->c_str(), nullptr, nullptr);
+  // session_id -> sink index
+  std::optional<uint32_t> target_sink_idx;
+  {
+    auto box = session_to_sink_idx.load();
+    const auto& m = *box;
+    if (auto v = m.find(*session_id)) {
+      target_sink_idx = *v;
+    }
+  }
+  if (!target_sink_idx) return;
+
+  // Already routed?
+  if (info->sink == *target_sink_idx) return;
+
+  // Move by index (robust)
+  auto op = pa_context_move_sink_input_by_index(c, info->index, *target_sink_idx, nullptr, nullptr);
   if (op) pa_operation_unref(op);
 
-  logs::log(logs::info,
-            "[PULSE_ROUTER] Move sink-input={} host='{}' -> '{}'",
+  logs::log(logs::debug,
+            "[PULSE_ROUTER] Move sink-input={} host='{}' -> session='{}' sink_idx={}",
             info->index,
             host,
-            *target);
-}
-
-std::optional<std::string> PulseAudioRouterState::target_sink_for_host_(std::string_view host) const {
-  auto m = host_to_session.load();
-  if (auto session = m->find(std::string(host))) {
-    return std::string(VIRTUAL_SINK_PREFIX) + *session;
-  }
-  return std::nullopt;
+            *session_id,
+            *target_sink_idx);
 }
 
 } // namespace wolf::core::audio
