@@ -153,7 +153,10 @@ void PulseAudioRouterState::enable_pulse_subscribe() {
     auto op2 = pa_context_get_sink_input_info_list(c, &PulseAudioRouterState::pa_sink_input_info_cb, this);
     if (op2) pa_operation_unref(op2);
 
-    logs::log(logs::debug, "[PULSE_ROUTER] Enabled PulseAudio sink-input subscription");
+    auto op3 = pa_context_get_sink_info_list(c, &PulseAudioRouterState::pa_sink_info_cb, this);
+    if (op3) pa_operation_unref(op3);
+
+    logs::log(logs::debug, "[PULSE_ROUTER] Enabled PulseAudio subscription (sink-input + sink)");
   });
 }
 
