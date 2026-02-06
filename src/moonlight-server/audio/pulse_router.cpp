@@ -43,11 +43,6 @@ setup_pulseaudio_router_handlers(const immer::box<state::AppState>& app_state,
         if (state) state->on_container_stopped(*ev);
       }));
 
-  handlers.push_back(app_state->event_bus->register_handler<immer::box<events::VirtualAudioSinkCreated>>(
-      [state](const immer::box<events::VirtualAudioSinkCreated>& ev) {
-        state->on_virtual_sink_created(*ev, state);
-      }));
-
   // Subscribe to sink-input events and do an initial scan
   state->enable_pulse_subscribe();
 
@@ -112,82 +107,34 @@ void PulseAudioRouterState::on_container_stopped(const events::DockerContainerSt
 
 }
 
-namespace {
-struct SinkResolveCtx {
-  std::shared_ptr<wolf::core::audio::PulseAudioRouterState> state;
-  std::string session_id;
-  std::string sink_name;
-};
-} // namespace
-
-void PulseAudioRouterState::on_virtual_sink_created(const events::VirtualAudioSinkCreated& ev, std::shared_ptr<PulseAudioRouterState> state_sp) {
-  if (ev.session_id.empty()) return;
-
-  // the sink index turns out to be the owner module index, which cannot be used to route sink
-  /*
-  session_to_sink_idx.update([&](auto m) {
-    return m.set(ev.session_id, ev.sink_index);
-  });
-  
-  logs::log(logs::debug,
-            "[PULSE_ROUTER] Sink ready session='{}' sink='{}' idx={}",
-            ev.session_id,
-            ev.sink_name,
-            ev.sink_index);
-
-  // Fix races: sink-input may already exist, or docker mapping may already exist
-  rescan();
-  */
-  if (!state_sp) return;
-
-  audio::queue_op(pulse_server, [state_sp,
-                                 session_id = ev.session_id,
-                                 sink_name = ev.sink_name]() {
-    if (!state_sp->pulse_server || !audio::context(state_sp->pulse_server)) return;
-
-    auto* ctx = new SinkResolveCtx{
-        .state = state_sp,
-        .session_id = session_id,
-        .sink_name = sink_name,
-    };
-
-    auto* c = audio::context(state_sp->pulse_server);
-    auto op = pa_context_get_sink_info_by_name(
-        c,
-        ctx->sink_name.c_str(),
-        &PulseAudioRouterState::pa_sink_info_by_name_cb,
-        ctx);
-    if (op) pa_operation_unref(op);
-  });
-}
-
-// function necessary to resolve the real sink index
-void PulseAudioRouterState::pa_sink_info_by_name_cb(pa_context* /*c*/,
+// resolve sink name to sink index
+void PulseAudioRouterState::pa_sink_info_cb(pa_context* /*c*/,
                                                     const pa_sink_info* info,
                                                     int eol,
                                                     void* userdata) {
-  auto* ctx = static_cast<SinkResolveCtx*>(userdata);
-  if (!ctx) return;
+  if (eol != 0 || !info) return;
+  auto* self = static_cast<PulseAudioRouterState*>(userdata);
+  if (!self) return;
 
-  if (eol) { // end of list / failure path
-    delete ctx;
-    return;
-  }
-  if (!info) return;
+  if (!info->name) return;
+  std::string_view name{info->name};
 
-  const uint32_t sink_idx = info->index;
+  // Prefix match
+  if (!name.starts_with(VIRTUAL_SINK_PREFIX)) return;
 
-  ctx->state->session_to_sink_idx.update([&](auto m) {
-    return m.set(ctx->session_id, sink_idx);
-  });
+  // session_id is suffix after prefix
+  std::string session_id{name.substr(VIRTUAL_SINK_PREFIX.size())};
+
+  self->session_to_sink_idx.update([&](auto m) { return m.set(session_id, info->index); });
 
   logs::log(logs::debug,
-            "[PULSE_ROUTER] Resolved sink '{}' -> idx={} for session '{}'",
-            ctx->sink_name,
-            sink_idx,
-            ctx->session_id);
+            "[PULSE_ROUTER] Sink appeared name='{}' idx={} -> session='{}'",
+            info->name,
+            info->index,
+            session_id);
 
-  ctx->state->rescan();
+  // route anything pending
+  self->rescan();
 }
 
 void PulseAudioRouterState::enable_pulse_subscribe() {
@@ -199,7 +146,7 @@ void PulseAudioRouterState::enable_pulse_subscribe() {
 
     pa_context_set_subscribe_callback(c, &PulseAudioRouterState::pa_subscribe_cb, this);
 
-    auto op = pa_context_subscribe(c, PA_SUBSCRIPTION_MASK_SINK_INPUT, nullptr, nullptr);
+    auto op = pa_context_subscribe(c, static_cast<pa_subscription_mask_t>(PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SINK), nullptr, nullptr);
     if (op) pa_operation_unref(op);
 
     // Initial scan
@@ -217,11 +164,21 @@ void PulseAudioRouterState::pa_subscribe_cb(pa_context* c, pa_subscription_event
   const auto facility = t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
   const auto type     = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
 
-  if (facility != PA_SUBSCRIPTION_EVENT_SINK_INPUT) return;
-  if (type != PA_SUBSCRIPTION_EVENT_NEW && type != PA_SUBSCRIPTION_EVENT_CHANGE) return;
+  if (facility == PA_SUBSCRIPTION_EVENT_SINK_INPUT) {
+    if (type == PA_SUBSCRIPTION_EVENT_NEW || type == PA_SUBSCRIPTION_EVENT_CHANGE) {
+      auto op = pa_context_get_sink_input_info(c, idx, &PulseAudioRouterState::pa_sink_input_info_cb, userdata);
+      if (op) pa_operation_unref(op);
+    }
+    return;
+  }
 
-  auto op = pa_context_get_sink_input_info(c, idx, &PulseAudioRouterState::pa_sink_input_info_cb, userdata);
-  if (op) pa_operation_unref(op);
+  if (facility == PA_SUBSCRIPTION_EVENT_SINK) {
+    if (type == PA_SUBSCRIPTION_EVENT_NEW || type == PA_SUBSCRIPTION_EVENT_CHANGE) {
+      auto op = pa_context_get_sink_info_by_index(c, idx, &PulseAudioRouterState::pa_sink_info_cb, userdata);
+      if (op) pa_operation_unref(op);
+    }
+    return;
+  }
 }
 
 void PulseAudioRouterState::pa_sink_input_info_cb(pa_context* c,
