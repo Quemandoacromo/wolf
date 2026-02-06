@@ -145,18 +145,6 @@ setup_moonlight_handlers(const immer::box<state::AppState> &app_state,
                                  .mode = state::get_audio_mode(session->audio_channel_count, true)});
           session->audio_sink->store(v_device);
 
-          auto ev_bus = app_state->event_bus;
-          std::thread([ev_bus, session, v_device, pulse_sink_name] {
-            //set to 0 since it is not used, also to avoid competing on future with vsink removal
-            uint32_t idx = 0; // v_device->sink_idx.get_future().get();   // blocks until created
-            ev_bus->fire_event(immer::box<events::VirtualAudioSinkCreated>(
-            events::VirtualAudioSinkCreated{
-              .session_id = std::to_string(session->session_id),
-              .sink_index = idx,
-              .sink_name  = pulse_sink_name,
-            }));
-          }).detach();
-
           std::thread([session, audio_server = audio_server->server]() {
             auto sink_name = fmt::format("{}{}.monitor", VIRTUAL_SINK_PREFIX, session->session_id);
             streaming::start_audio_producer(std::to_string(session->session_id),

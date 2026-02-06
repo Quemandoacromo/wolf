@@ -160,17 +160,6 @@ setup_lobbies_handlers(const immer::box<state::AppState> &app_state,
 
             lobby->audio_sink->store(v_device);
 
-            std::thread([ev_bus, lobby, v_device, pulse_sink_name] {
-              // set to 0 to avoid competing with vsink removal (and the sink_idx was the modlue idx instead, not useful here)
-              uint32_t idx = 0; // v_device->sink_idx.get_future().get();   // blocks until created
-              ev_bus->fire_event(immer::box<events::VirtualAudioSinkCreated>(
-              events::VirtualAudioSinkCreated{
-                .session_id = lobby->id,
-                .sink_index = idx,
-                .sink_name  = pulse_sink_name,
-              }));
-            }).detach();
-
             // Start Gstreamer producer pipeline
             std::thread([lobby, audio_server = audio_server->server, ev_bus, channel_count]() {
               auto sink_name = fmt::format("{}{}.monitor", VIRTUAL_SINK_PREFIX, lobby->id);
