@@ -140,8 +140,14 @@ docker::Container tag_invoke(value_to_tag<docker::Container>, value const &jv) {
     env = json::value_to<std::vector<std::string>>(obj.at("Config").at("Env"));
   }
 
+  std::string hostname;
+  if (!obj.at("Config").at("Hostname").is_null()) { // usually present; kept consistent with above null checks
+    hostname = json::value_to<std::string>(obj.at("Config").at("Hostname"));
+  }
+
   return docker::Container{.id = json::value_to<std::string>(obj.at("Id")),
                            .name = json::value_to<std::string>(obj.at("Name")),
+                           .hostname = hostname,
                            .image = json::value_to<std::string>(obj.at("Config").at("Image")),
                            .status = status,
                            .ports = ports,

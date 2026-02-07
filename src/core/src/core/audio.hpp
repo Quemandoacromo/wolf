@@ -10,9 +10,13 @@
 #include <string>
 #include <vector>
 
+struct pa_context; 
+
 namespace wolf::core::audio {
 
 typedef struct Server Server;
+
+pa_context* context(const std::shared_ptr<Server>& server);
 
 std::shared_ptr<Server> connect(std::string_view server = {});
 
@@ -54,6 +58,8 @@ struct VSink {
  * Will sit here and wait until the server accepts the connection or some error happens
  */
 bool connected(const std::shared_ptr<Server> &server);
+
+void queue_op(const std::shared_ptr<Server>& server, const std::function<void()>& op);
 
 std::shared_ptr<VSink> create_virtual_sink(const std::shared_ptr<Server> &server, const AudioDevice &device);
 

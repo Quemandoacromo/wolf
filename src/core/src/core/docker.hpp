@@ -44,6 +44,7 @@ struct Device {
 struct Container {
   std::string id;
   std::string name;
+  std::string hostname;
 
   std::string image;
 

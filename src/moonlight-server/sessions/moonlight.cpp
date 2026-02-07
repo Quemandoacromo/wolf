@@ -2,6 +2,7 @@
 #include <immer/map_transient.hpp>
 #include <immer/vector_transient.hpp>
 #include <sessions/handlers.hpp>
+#include <sessions/common.hpp>
 #include <state/sessions.hpp>
 #include <streaming/streaming.hpp>
 
@@ -135,7 +136,7 @@ setup_moonlight_handlers(const immer::box<state::AppState> &app_state,
 
         /* Create audio virtual sink */
         logs::log(logs::debug, "[STREAM_SESSION] Create virtual audio sink");
-        auto pulse_sink_name = fmt::format("virtual_sink_{}", session->session_id);
+        auto pulse_sink_name = fmt::format("{}{}", VIRTUAL_SINK_PREFIX,  session->session_id);
         std::shared_ptr<audio::VSink> v_device;
         if (session->app->start_audio_server && audio_server && audio_server->server) {
           v_device = audio::create_virtual_sink(
@@ -145,7 +146,7 @@ setup_moonlight_handlers(const immer::box<state::AppState> &app_state,
           session->audio_sink->store(v_device);
 
           std::thread([session, audio_server = audio_server->server]() {
-            auto sink_name = fmt::format("virtual_sink_{}.monitor", session->session_id);
+            auto sink_name = fmt::format("{}{}.monitor", VIRTUAL_SINK_PREFIX, session->session_id);
             streaming::start_audio_producer(std::to_string(session->session_id),
                                             session->event_bus,
                                             session->audio_channel_count,
@@ -245,7 +246,7 @@ setup_moonlight_handlers(const immer::box<state::AppState> &app_state,
           // Start streaming
           auto audio_server_name = audio_server ? audio::get_server_name(audio_server->server)
                                                 : std::optional<std::string>();
-          auto sink_name = fmt::format("virtual_sink_{}.monitor", sess->session_id);
+          auto sink_name = fmt::format("{}{}.monitor", VIRTUAL_SINK_PREFIX, sess->session_id);
           auto server_name = audio_server_name ? audio_server_name.value() : "";
 
           streaming::start_streaming_audio(sess,

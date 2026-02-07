@@ -57,6 +57,10 @@ struct Server {
   boost::future<bool> on_ready_fut;
 };
 
+pa_context* context(const std::shared_ptr<Server>& server) {
+  return server ? server->ctx : nullptr;
+}
+
 std::shared_ptr<Server> connect(std::string_view server) {
   {
     auto loop = pa_mainloop_new();

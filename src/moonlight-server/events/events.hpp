@@ -206,6 +206,18 @@ struct DockerPullImageEndEvent {
   bool success;
 };
 
+struct DockerContainerCreated {
+  std::string container_id;
+  std::string hostname; 
+  std::string session_id; 
+};
+
+struct DockerContainerStopped {
+  std::string container_id;
+  std::string hostname;
+  std::string session_id;
+};
+
 using MouseTypes = std::variant<input::Mouse, virtual_display::WaylandMouse>;
 using KeyboardTypes = std::variant<input::Keyboard, virtual_display::WaylandKeyboard>;
 using TouchScreenTypes = std::variant<input::TouchScreen, virtual_display::WaylandTouchScreen>;
@@ -340,7 +352,9 @@ using EventBusHandlers = dp::handler_registration<immer::box<PlugDeviceEvent>,
                                                   immer::box<LeaveLobbyEvent>,
                                                   immer::box<CreateLobbyEvent>,
                                                   immer::box<StopLobbyEvent>,
-                                                  immer::box<SwitchStreamProducerEvents>>;
+                                                  immer::box<SwitchStreamProducerEvents>,
+                                                  immer::box<DockerContainerCreated>,
+                                                  immer::box<DockerContainerStopped>>;
 using EventBusType = dp::event_bus<immer::box<PlugDeviceEvent>,
                                    immer::box<PairSignal>,
                                    immer::box<UnplugDeviceEvent>,
@@ -359,7 +373,9 @@ using EventBusType = dp::event_bus<immer::box<PlugDeviceEvent>,
                                    immer::box<LeaveLobbyEvent>,
                                    immer::box<CreateLobbyEvent>,
                                    immer::box<StopLobbyEvent>,
-                                   immer::box<SwitchStreamProducerEvents>>;
+                                   immer::box<SwitchStreamProducerEvents>,
+                                   immer::box<DockerContainerCreated>,
+                                   immer::box<DockerContainerStopped>>;
 using EventsVariant = std::variant<immer::box<PlugDeviceEvent>,
                                    immer::box<PairSignal>,
                                    immer::box<UnplugDeviceEvent>,
@@ -378,7 +394,9 @@ using EventsVariant = std::variant<immer::box<PlugDeviceEvent>,
                                    immer::box<LeaveLobbyEvent>,
                                    immer::box<CreateLobbyEvent>,
                                    immer::box<StopLobbyEvent>,
-                                   immer::box<SwitchStreamProducerEvents>>;
+                                   immer::box<SwitchStreamProducerEvents>,
+                                   immer::box<DockerContainerCreated>,
+                                   immer::box<DockerContainerStopped>>;
 
 /**
  * A StreamSession is created when a Moonlight user call `launch`
