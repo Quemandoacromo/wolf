@@ -182,6 +182,8 @@ docker create --rm --mount source=nvidia-driver-vol,destination=/usr/nvidia gow/
 
 It will create a Docker container, populate `nvidia-driver-vol` with Nvidia driver if it wasn't already done and remove the container.
 
+If the volume previously existed with older drivers, you may need to remove it before re-creating the volume with newer drivers: `docker volume rm nvidia-driver-vol`.
+
 Check volume exists with:
 
 [source,bash]
