@@ -504,7 +504,7 @@ local     nvidia-driver-vol
 sudo podman start musing_pascal
 ....
 
-You can verify the contents of of your `nvidia-driver-vol` by running `sudo podman volume inspect nvidia-driver-vol` and then browsing the `Mountpoint`: `sudo la -la /var/lib/containers/storage/volumes/nvidia-driver-vol/_data`. You should see a non empty folder:
+You can verify the contents of of your `nvidia-driver-vol` by running `sudo podman volume inspect nvidia-driver-vol` and then browsing the `Mountpoint`: `sudo ls -la /var/lib/containers/storage/volumes/nvidia-driver-vol/_data`. You should see a non empty folder:
 
 [source,bash]
 ....
