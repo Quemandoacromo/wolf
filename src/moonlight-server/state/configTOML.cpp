@@ -217,29 +217,33 @@ Config load_or_default(const std::string &source,
   // First check the version of the config file
   auto base_cfg = rfl::toml::load<BaseConfig, rfl::DefaultIfMissing>(source).value();
   auto version = base_cfg.config_version.value_or(0);
-  if (version <= 5) {
-    logs::log(logs::warning, "Found old config file, migrating to newer version");
-    std::filesystem::rename(source, source + ".v4.old");
-    auto v4 = toml::parse_file(source + ".v4.old");
+  if (version <= 6) {
+    logs::log(logs::warning, "Found old config file (v{}), migrating to v7", version);
+    auto backup = source + ".v" + std::to_string(version) + ".old";
+    std::filesystem::rename(source, backup);
+    auto old_cfg = toml::parse_file(backup);
     create_default(source);
-    auto v5 = toml::parse_file(source);
-    // Copy back everything else
-    v5.insert_or_assign("hostname", v4.at("hostname"));
-    v5.insert_or_assign("uuid", v4.at("uuid"));
-    v5.insert_or_assign("paired_clients", v4.at("paired_clients"));
-    // Insert old `apps` into the new `profiles` for the default profile (`user`)
-    auto moonlight_profile = v5["profiles"].as_array()->at(0).as_table();
-    v5.insert_or_assign(
-        "profiles",
-        toml::array{*moonlight_profile, toml::table({{"id", "user"}, {"name", "User"}, {"apps", v4.at("apps")}})});
+    auto new_cfg = toml::parse_file(source);
+    new_cfg.insert_or_assign("hostname", old_cfg.at("hostname"));
+    new_cfg.insert_or_assign("uuid", old_cfg.at("uuid"));
+    new_cfg.insert_or_assign("paired_clients", old_cfg.at("paired_clients"));
+    if (old_cfg.contains("profiles")) {
+      new_cfg.insert_or_assign("profiles", old_cfg.at("profiles"));
+    } else if (old_cfg.contains("apps")) {
+      auto moonlight_profile = new_cfg["profiles"].as_array()->at(0).as_table();
+      new_cfg.insert_or_assign(
+          "profiles",
+          toml::array{*moonlight_profile,
+                      toml::table({{"id", "user"}, {"name", "User"}, {"apps", old_cfg.at("apps")}})});
+    }
     std::ofstream out_file;
     out_file.open(source);
     if (!out_file.is_open()) {
       throw std::runtime_error("Failed to open config file for writing");
     }
-    out_file << v5;
+    out_file << new_cfg;
     out_file.close();
-    logs::log(logs::debug, "Migrated config from v4 to v5");
+    logs::log(logs::debug, "Migrated config from v{} to v7", version);
   }
 
   // Will throw if the config is invalid
