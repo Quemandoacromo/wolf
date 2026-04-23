@@ -190,8 +190,7 @@ parse_apps(const std::vector<BaseApp> &apps,
                                  .id = generate_app_id(app),
                                  .support_hdr = false,
                                  .icon_png_path = app.icon_png_path},
-                        .video_producer_buffer_caps =
-                            app_video_settings.producer_buffer_caps.value_or(default_video_settings.producer_buffer_caps.value()),
+                        .video_producer_buffer_caps = default_video_settings.producer_buffer_caps.value(),
                         .h264_gst_pipeline = h264_gst_pipeline,
                         .hevc_gst_pipeline = hevc_gst_pipeline,
                         .av1_gst_pipeline = av1_gst_pipeline,
@@ -307,9 +306,14 @@ Config load_or_default(const std::string &source,
     }
     case VAAPI:
     case QUICKSYNC: {
-      auto required_caps = gstreamer::get_dma_caps("vapostproc");
-      logs::log(logs::debug, "Required DMA formats for vapostproc: {}", required_caps);
-      auto gst_caps = required_caps | //
+      auto sink_caps = gstreamer::get_dma_caps("vapostproc", GST_PAD_SINK);
+      auto source_caps = gstreamer::get_dma_caps("waylanddisplaysrc", GST_PAD_SRC);
+      logs::log(logs::debug, "Required DMA formats for vapostproc: {}", sink_caps);
+      logs::log(logs::debug, "Available DMA formats for waylanddisplaysrc: {}", source_caps);
+      auto gst_caps = source_caps | //
+                      ranges::views::filter([&sink_caps](const std::string &cap) {
+                        return ranges::find(sink_caps, cap) != sink_caps.end();
+                      }) | //
                       ranges::views::remove_if([](const std::string &cap) {
                         // TODO: HDR isn't supported by Wolf yet (so we remove P010 and AR30 format)
                         return cap.find("P010") != std::string::npos || cap.find("AR30") != std::string::npos ||
@@ -319,7 +323,8 @@ Config load_or_default(const std::string &source,
                       ranges::to<std::vector>();
       if (gst_caps.empty()) {
         logs::log(logs::warning,
-                  "Unable to find any compatible DMA formats for vapostproc, disabling zero copy pipeline.");
+                  "Unable to find any compatible DMA formats between waylanddisplaysrc and vapostproc, disabling "
+                  "zero copy pipeline.");
         use_zero_copy = false;
       } else {
         default_base_video.producer_buffer_caps =

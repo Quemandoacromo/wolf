@@ -135,9 +135,6 @@ id = 'moonlight-profile-id'
     start_virtual_compositor = true
     icon_png_path = "https://raw.githubusercontent.com/games-on-whales/wolf-ui/refs/heads/main/src/Icons/wolf_ui_icon.png"
 
-        [profiles.apps.video]
-        producer_buffer_caps = "video/x-raw"
-
         [profiles.apps.runner]
         type = 'docker'
         name = 'Wolf-UI'
