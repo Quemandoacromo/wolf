@@ -13,10 +13,33 @@
 
 namespace wolf::core::sessions {
 constexpr std::string_view VIRTUAL_SINK_PREFIX = "virtual_sink_";
+constexpr std::chrono::milliseconds DEFAULT_WAYLAND_SOCKET_WAIT_TIMEOUT = std::chrono::seconds(5);
+
+inline std::chrono::milliseconds get_wayland_socket_wait_timeout() {
+  if (const char *timeout_ms = std::getenv("WOLF_WAYLAND_SOCKET_WAIT_TIMEOUT_MS")) {
+    try {
+      auto parsed = std::stoll(timeout_ms);
+      if (parsed >= 0) {
+        return std::chrono::milliseconds(parsed);
+      }
+      logs::log(logs::warning,
+                "Ignoring negative WOLF_WAYLAND_SOCKET_WAIT_TIMEOUT_MS={}, using default {}ms",
+                timeout_ms,
+                DEFAULT_WAYLAND_SOCKET_WAIT_TIMEOUT.count());
+    } catch (const std::exception &) {
+      logs::log(logs::warning,
+                "Ignoring invalid WOLF_WAYLAND_SOCKET_WAIT_TIMEOUT_MS={}, using default {}ms",
+                timeout_ms,
+                DEFAULT_WAYLAND_SOCKET_WAIT_TIMEOUT.count());
+    }
+  }
+
+  return DEFAULT_WAYLAND_SOCKET_WAIT_TIMEOUT;
+}
 
 inline bool wait_for_wayland_socket(std::string_view runtime_dir,
                                     const std::string &socket_name,
-                                    std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
+                                    std::chrono::milliseconds timeout = get_wayland_socket_wait_timeout()) {
   if (const char *skip_wait = std::getenv("WOLF_SKIP_WAYLAND_SOCKET_WAIT")) {
     if (std::string_view(skip_wait) == "TRUE" || std::string_view(skip_wait) == "1") {
       return true;
