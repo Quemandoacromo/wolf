@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -16,6 +17,12 @@ constexpr std::string_view VIRTUAL_SINK_PREFIX = "virtual_sink_";
 inline bool wait_for_wayland_socket(std::string_view runtime_dir,
                                     const std::string &socket_name,
                                     std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
+  if (const char *skip_wait = std::getenv("WOLF_SKIP_WAYLAND_SOCKET_WAIT")) {
+    if (std::string_view(skip_wait) == "TRUE" || std::string_view(skip_wait) == "1") {
+      return true;
+    }
+  }
+
   auto socket_path = std::filesystem::path(runtime_dir) / socket_name;
   auto deadline = std::chrono::steady_clock::now() + timeout;
   struct stat st {};
