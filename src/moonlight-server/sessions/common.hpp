@@ -38,4 +38,4 @@ inline bool wait_for_wayland_socket(std::string_view runtime_dir,
 
   return false;
 }
-}
+} // namespace wolf::core::sessions
