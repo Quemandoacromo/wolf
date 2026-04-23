@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <events/events.hpp>
 #include <events/reflectors.hpp>
 #include <fstream>
@@ -312,7 +313,7 @@ Config load_or_default(const std::string &source,
       logs::log(logs::debug, "Available DMA formats for waylanddisplaysrc: {}", source_caps);
       auto gst_caps = source_caps | //
                       ranges::views::filter([&sink_caps](const std::string &cap) {
-                        return ranges::find(sink_caps, cap) != sink_caps.end();
+                        return std::find(sink_caps.begin(), sink_caps.end(), cap) != sink_caps.end();
                       }) | //
                       ranges::views::remove_if([](const std::string &cap) {
                         // TODO: HDR isn't supported by Wolf yet (so we remove P010 and AR30 format)
