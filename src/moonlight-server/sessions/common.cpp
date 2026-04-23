@@ -20,16 +20,17 @@ void start_runner(std::shared_ptr<events::Runner> runner,
   full_env.set("XDG_RUNTIME_DIR", args->xdg_runtime_dir);
   full_env.set("WOLF_SESSION_ID", args->session_id);
 
-  // Mount the whole runtime directory into the runner container. This avoids
-  // bind-mount races on per-socket paths when the Wayland socket is created
-  // shortly after the compositor announces its display name.
-  mounted_paths.push_back({args->host->host_xdg_runtime_dir, args->xdg_runtime_dir});
-
   auto pulse_sink_name = fmt::format("{}{}", VIRTUAL_SINK_PREFIX, args->session_id);
   auto audio_server_name = args->audio_server ? audio::get_server_name(args->audio_server->server) : "";
+  // TODO: properly separate XDG_RUNTIME_DIR from <pulse socket path>
+  // for example on my dev machine it's ${XDG_RUNTIME_DIR}/pulse/native
+  // but we know that on our images it's ${XDG_RUNTIME_DIR}/pulse-socket so this should be fine..
+  auto audio_server_on_host = std::filesystem::path(args->host->host_xdg_runtime_dir) /
+                              std::filesystem::path(audio_server_name).filename();
   full_env.set("PULSE_SINK", pulse_sink_name);
   full_env.set("PULSE_SOURCE", pulse_sink_name + ".monitor");
   full_env.set("PULSE_SERVER", audio_server_name);
+  mounted_paths.push_back({audio_server_on_host, audio_server_name});
 
   full_env.set("GAMESCOPE_WIDTH", std::to_string(args->video_settings.width));
   full_env.set("GAMESCOPE_HEIGHT", std::to_string(args->video_settings.height));
@@ -38,6 +39,9 @@ void start_runner(std::shared_ptr<events::Runner> runner,
 
   if (auto w_display = args->wayland_display.get()) {
     auto socket_name = virtual_display::get_wayland_socket_name(*w_display);
+    auto local_wayland_socket = std::filesystem::path(args->xdg_runtime_dir) / socket_name;
+    auto host_wayland_socket = std::filesystem::path(args->host->host_xdg_runtime_dir) / socket_name;
+    mounted_paths.push_back({host_wayland_socket, local_wayland_socket});
     full_env.set("WAYLAND_DISPLAY", socket_name);
   }
 
