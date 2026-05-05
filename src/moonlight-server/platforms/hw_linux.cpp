@@ -12,6 +12,7 @@
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <optional>
+#include <system_error>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -105,6 +106,19 @@ std::shared_ptr<drmDevice> drm_open_device(std::string_view device) {
           }};
 }
 
+void add_character_device(std::vector<std::string> &devices, std::string_view path) {
+  std::error_code err;
+  auto device_path = std::filesystem::path(path);
+  if (std::filesystem::is_character_file(device_path, err)) {
+    devices.emplace_back(path);
+    return;
+  }
+
+  if (!err && std::filesystem::exists(device_path, err)) {
+    logs::log(logs::warning, "Skipping {}, it exists but is not a character device", path);
+  }
+}
+
 std::vector<std::string> linked_devices(std::string_view gpu) {
   std::vector<std::string> found_devices;
 
@@ -118,20 +132,11 @@ std::vector<std::string> linked_devices(std::string_view gpu) {
     std::string primary_node = device->nodes[DRM_NODE_PRIMARY];
     found_devices.emplace_back(primary_node);
     if (auto nvidia_node = get_nvidia_node(primary_node)) {
-      found_devices.emplace_back(nvidia_node.value());
-
-      if (std::filesystem::exists("/dev/nvidia-modeset")) {
-        found_devices.emplace_back("/dev/nvidia-modeset");
-      }
-      if (std::filesystem::exists("/dev/nvidia-uvm")) {
-        found_devices.emplace_back("/dev/nvidia-uvm");
-      }
-      if (std::filesystem::exists("/dev/nvidia-uvm-tools")) {
-        found_devices.emplace_back("/dev/nvidia-uvm-tools");
-      }
-      if (std::filesystem::exists("/dev/nvidiactl")) {
-        found_devices.emplace_back("/dev/nvidiactl");
-      }
+      add_character_device(found_devices, nvidia_node.value());
+      add_character_device(found_devices, "/dev/nvidia-modeset");
+      add_character_device(found_devices, "/dev/nvidia-uvm");
+      add_character_device(found_devices, "/dev/nvidia-uvm-tools");
+      add_character_device(found_devices, "/dev/nvidiactl");
     }
 
     std::string render_node = device->nodes[DRM_NODE_RENDER];
