@@ -106,7 +106,7 @@ std::shared_ptr<drmDevice> drm_open_device(std::string_view device) {
           }};
 }
 
-void add_character_device(std::vector<std::string> &devices, std::string_view path) {
+void add_character_device(std::vector<std::string> &devices, std::string_view path, bool optional = false) {
   std::error_code err;
   auto device_path = std::filesystem::path(path);
   if (std::filesystem::is_character_file(device_path, err)) {
@@ -115,7 +115,14 @@ void add_character_device(std::vector<std::string> &devices, std::string_view pa
   }
 
   if (!err && std::filesystem::exists(device_path, err)) {
-    logs::log(logs::warning, "Skipping {}, it exists but is not a character device", path);
+    if (optional) {
+      logs::log(logs::warning, "Skipping {}, it exists but is not a character device", path);
+    } else {
+      logs::log(logs::error,
+                "{} exists but is not a character device; this NVIDIA device is required and the container may not "
+                "work correctly. In LXC containers, ensure the device is properly mapped as a character device.",
+                path);
+    }
   }
 }
 
@@ -135,7 +142,7 @@ std::vector<std::string> linked_devices(std::string_view gpu) {
       add_character_device(found_devices, nvidia_node.value());
       add_character_device(found_devices, "/dev/nvidia-modeset");
       add_character_device(found_devices, "/dev/nvidia-uvm");
-      add_character_device(found_devices, "/dev/nvidia-uvm-tools");
+      add_character_device(found_devices, "/dev/nvidia-uvm-tools", true);
       add_character_device(found_devices, "/dev/nvidiactl");
     }
 
