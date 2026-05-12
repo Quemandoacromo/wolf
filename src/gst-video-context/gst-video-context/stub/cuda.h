@@ -39,7 +39,7 @@ typedef guint64 CUtexObject;
 typedef guintptr CUdeviceptr;
 typedef gint CUdevice;
 
-typedef struct CUuuid_st {                                /**< CUDA definition of UUID */
+typedef struct CUuuid_st { /**< CUDA definition of UUID */
   char bytes[16];
 } CUuuid;
 
