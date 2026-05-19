@@ -1,3 +1,4 @@
+#include <atomic>
 #include <immer/array_transient.hpp>
 #include <immer/map_transient.hpp>
 #include <immer/vector_transient.hpp>
@@ -20,14 +21,17 @@ immer::box<RTPPingType> wait_for_ping(std::shared_ptr<events::EventBusType> ev_b
   auto ping_promise = std::make_shared<std::promise<RTPPingType>>();
   auto ping_future = ping_promise->get_future();
 
+  auto resolved = std::make_shared<std::atomic_flag>();
   auto handler =
-      ev_bus->register_handler<immer::box<RTPPingType>>([sess, ping_promise](const immer::box<RTPPingType> &ping_ev) {
+      ev_bus->register_handler<immer::box<RTPPingType>>([sess, ping_promise, resolved](const immer::box<RTPPingType> &ping_ev) {
         // Check if this ping is for our session
         if (sess->rtp_secret_payload == ping_ev->payload || // Secret payload matching
             (!ping_ev->payload.has_value() && ping_ev->client_ip == sess->client_ip &&
              ping_ev->client_port == sess->port)) { // Legacy IP+port matching when no payload has been passed
           // Resolve the promise with the ping event data
-          ping_promise->set_value(*ping_ev);
+          if (!resolved->test_and_set(std::memory_order_acq_rel)) {
+            ping_promise->set_value(*ping_ev);
+          }
         }
       });
 
