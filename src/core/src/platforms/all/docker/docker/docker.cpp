@@ -192,7 +192,9 @@ std::optional<Container> DockerAPI::create(const Container &container,
       } else if (raw_msg) {
         logs::log(logs::warning, "[DOCKER] error {} - {}", raw_msg->first, raw_msg->second);
       }
-    } else if (raw_msg && force_recreate_if_present && raw_msg->first == 409) {
+    } else if (raw_msg && force_recreate_if_present &&
+               (raw_msg->first == 409 ||
+                (raw_msg->first == 500 && raw_msg->second.find("already in use") != std::string::npos))) {
       logs::log(logs::warning, "[DOCKER] Container {} already present, removing first", container.name);
       if (remove_by_name(container.name, true, true, false)) {
         return create(container, custom_params, registry_auth, force_recreate_if_present);
