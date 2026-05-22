@@ -4,6 +4,8 @@
 #include <docker/json_formatters.hpp>
 #include <helpers/logger.hpp>
 #include <helpers/utils.hpp>
+#include <algorithm>
+#include <cctype>
 #include <range/v3/view.hpp>
 #include <string_view>
 
@@ -20,6 +22,48 @@ enum METHOD : int {
 
 void init() {
   curl_global_init(CURL_GLOBAL_ALL);
+}
+
+namespace {
+
+std::string lower_copy(std::string_view value) {
+  std::string lowered(value);
+  std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return lowered;
+}
+
+bool has_name_conflict_text(std::string_view value) {
+  const auto lowered = lower_copy(value);
+  return lowered.find("already in use") != std::string::npos && lowered.find("name") != std::string::npos;
+}
+
+} // namespace
+
+bool is_container_name_conflict_response(long status_code, std::string_view response_body) {
+  if (status_code == 409) {
+    return true;
+  }
+
+  if (status_code != 500) {
+    return false;
+  }
+
+  boost::system::error_code ec;
+  const auto json = json::parse({response_body.data(), response_body.size()}, ec);
+  if (!ec) {
+    if (const auto obj = json.if_object()) {
+      for (const auto field : {"message", "cause"}) {
+        if (const auto value = obj->if_contains(field);
+            value && value->is_string() && has_name_conflict_text(value->as_string())) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return has_name_conflict_text(response_body);
 }
 
 using curl_ptr = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;
@@ -193,8 +237,7 @@ std::optional<Container> DockerAPI::create(const Container &container,
         logs::log(logs::warning, "[DOCKER] error {} - {}", raw_msg->first, raw_msg->second);
       }
     } else if (raw_msg && force_recreate_if_present &&
-               (raw_msg->first == 409 ||
-                (raw_msg->first == 500 && raw_msg->second.find("already in use") != std::string::npos))) {
+               is_container_name_conflict_response(raw_msg->first, raw_msg->second)) {
       logs::log(logs::warning, "[DOCKER] Container {} already present, removing first", container.name);
       if (remove_by_name(container.name, true, true, false)) {
         return create(container, custom_params, registry_auth, force_recreate_if_present);
