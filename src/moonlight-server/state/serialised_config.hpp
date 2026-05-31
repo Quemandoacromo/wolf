@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdlib>
+#include <helpers/utils.hpp>
 #include <rfl.hpp>
 #include <string>
 
@@ -13,28 +13,14 @@ enum class ControllerType {
   AUTO
 };
 
-/**
- * The UID/GID that apps run as defaults to 1000:1000, but can be overridden via
- * the WOLF_DEFAULT_RUN_UID / WOLF_DEFAULT_RUN_GID environment variables. This
- * lets deployments that don't use the conventional 1000:1000 — for example
- * Unraid, where `nobody` is 99:100 — set sensible defaults for every newly
- * paired client without editing each one by hand. Falls back to the given
- * default when the variable is unset or not a valid number.
- */
-inline uint env_default_run_id(const char *env_var, uint fallback) {
-  if (const char *value = std::getenv(env_var)) {
-    try {
-      return static_cast<uint>(std::stoul(value));
-    } catch (...) {
-      // Ignore malformed values and use the fallback instead.
-    }
-  }
-  return fallback;
-}
-
 struct ClientSettings {
-  uint run_uid = env_default_run_id("WOLF_DEFAULT_RUN_UID", 1000);
-  uint run_gid = env_default_run_id("WOLF_DEFAULT_RUN_GID", 1000);
+  /* The UID/GID that apps run as defaults to 1000:1000, but the defaults applied
+   * to newly paired clients can be overridden via the WOLF_DEFAULT_RUN_UID /
+   * WOLF_DEFAULT_RUN_GID environment variables. This lets deployments that don't
+   * use the conventional 1000:1000 — for example Unraid, where `nobody` is
+   * 99:100 — set sensible defaults without editing each client by hand. */
+  uint run_uid = std::stoul(utils::get_env("WOLF_DEFAULT_RUN_UID", "1000"));
+  uint run_gid = std::stoul(utils::get_env("WOLF_DEFAULT_RUN_GID", "1000"));
   /* A list of forced controller overrides, the position in the array denotes the controller number */
   std::vector<ControllerType> controllers_override = {};
   /* Values above 1.0 will make it faster, between 0.0 and 1.0 will make it slower */
