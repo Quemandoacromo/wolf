@@ -54,6 +54,14 @@ Wolf is configured via a TOML config file and some additional optional ENV varia
 |WOLF_DOCKER_FAKE_UDEV_PATH
 |$HOST_APPS_STATE_FOLDER/fake-udev
 |The path on the host for the fake-udev CLI tool
+
+|WOLF_DEFAULT_RUN_UID
+|1000
+|The default UID that apps run as, applied to newly paired clients; existing clients keep their saved values
+
+|WOLF_DEFAULT_RUN_GID
+|1000
+|The default GID that apps run as, applied to newly paired clients; existing clients keep their saved values
 |===
 
 Additional env variables useful when debugging:
