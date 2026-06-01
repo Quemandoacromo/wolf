@@ -42,11 +42,10 @@ static void send_message(GstElement *recipient, GstStructure *message) {
 }
 
 /**
- * Given a Gstreamer element returns the supported DRM formats (if any) for the
- * requested pad direction.
- * Ex: "vapostproc" -> ["P010:0x0200000000042305", "NV12:0x0200000000042305"]
+ * Given a Gstreamer element returns the supported DRM formats (if any).
+ * Ex: "vah265enc" -> ["P010:0x0200000000042305", "NV12:0x0200000000042305"]
  */
-static std::vector<std::string> get_dma_caps(const std::string &gst_plugin_name, GstPadDirection direction) {
+static std::vector<std::string> get_dma_caps(const std::string &gst_plugin_name) {
   std::vector<std::string> caps;
   GstRegistry *registry = gst_registry_get();
   if (auto feature = gst_registry_find_feature(registry, gst_plugin_name.c_str(), GST_TYPE_ELEMENT_FACTORY)) {
@@ -54,7 +53,7 @@ static std::vector<std::string> get_dma_caps(const std::string &gst_plugin_name,
       auto pads = gst_element_factory_get_static_pad_templates(GST_ELEMENT_FACTORY(real_feature));
       for (auto pad = pads; pad; pad = g_list_next(pad)) {
         auto pad_template = (GstStaticPadTemplate *)(pad->data);
-        if (pad_template->static_caps.string && pad_template->direction == direction) {
+        if (pad_template->static_caps.string && pad_template->direction == GST_PAD_SINK) {
           GstCaps *current_caps = gst_static_caps_get(&pad_template->static_caps);
           // iterate over caps looking for the type memory:DMABuf
           gst_caps_foreach(
@@ -86,9 +85,5 @@ static std::vector<std::string> get_dma_caps(const std::string &gst_plugin_name,
   }
 
   return caps;
-}
-
-static std::vector<std::string> get_dma_caps(const std::string &gst_plugin_name) {
-  return get_dma_caps(gst_plugin_name, GST_PAD_SINK);
 }
 } // namespace wolf::core::gstreamer
