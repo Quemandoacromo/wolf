@@ -15,7 +15,7 @@ RUN apt-get update -y && \
     git \
     clang \
     build-essential \
-    libboost-thread-dev libboost-locale-dev libboost-filesystem-dev libboost-log-dev libboost-stacktrace-dev libboost-container-dev \
+    libboost-thread-dev libboost-locale-dev libboost-filesystem-dev libboost-log-dev libboost-stacktrace-dev libboost-container-dev libboost-json-dev \
     libwayland-dev libwayland-server0 libinput-dev libxkbcommon-dev libgbm-dev \
     libcurl4-openssl-dev \
     libssl-dev \
