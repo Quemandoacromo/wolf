@@ -475,7 +475,7 @@ bool DockerAPI::exec(std::string_view id, const std::vector<std::string_view> &c
   if (auto conn = docker_connect(socket_path)) {
     auto api_url = fmt::format("http://localhost/{}/containers/{}/exec", docker_api_version, id);
     auto post_params = json::object{
-        {"Cmd", command},
+        {"Cmd", json::value_from(command)},
         {"User", user},
         {"AttachStdin", false},
         {"AttachStdout", true},
