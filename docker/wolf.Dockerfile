@@ -119,6 +119,7 @@ ENV GST_GL_API=gles2 \
     WOLF_PULSE_IMAGE=ghcr.io/games-on-whales/pulseaudio:master \
     WOLF_RENDER_NODE=/dev/dri/renderD128 \
     WOLF_STOP_CONTAINER_ON_EXIT=TRUE \
+    WOLF_WAYLAND_SOCKET_WAIT_TIMEOUT_MS=5000 \
     WOLF_DOCKER_SOCKET=/var/run/docker.sock \
     WOLF_DEFAULT_RUN_UID=1000 \
     WOLF_DEFAULT_RUN_GID=1000 \

@@ -35,6 +35,10 @@ Wolf is configured via a TOML config file and some additional optional ENV varia
 |TRUE
 |Set to False in order to avoid force stop and removal of containers when the connection is closed
 
+|WOLF_WAYLAND_SOCKET_WAIT_TIMEOUT_MS
+|5000
+|The time in milliseconds to wait for the Wayland socket to appear before starting the stream runner
+
 |WOLF_DOCKER_SOCKET
 |/var/run/docker.sock
 |The full path to the docker socket, doesn't support tcp (yet)
