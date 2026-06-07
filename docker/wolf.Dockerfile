@@ -97,13 +97,17 @@ RUN apt-get update -y && \
     && rm -rf /var/lib/apt/lists/*
 
 # Embedded PulseAudio: Wolf runs its own PulseAudio server inside this container
-# (started by startup.sh) so audio is available as soon as Wolf boots, without
-# the legacy external "WolfPulseAudio" sidecar container and its startup race.
+# (supervised by supervisord, see startup.sh + supervisord.conf) so audio is
+# available as soon as Wolf boots, without the legacy external "WolfPulseAudio"
+# sidecar container and its startup race. supervisord starts PA before Wolf,
+# restarts it if it dies, and stops both cleanly on container shutdown.
 # pulseaudio-utils ships pactl, handy for debugging audio from inside the container.
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
-    pulseaudio pulseaudio-utils \
+    pulseaudio pulseaudio-utils supervisor \
     && rm -rf /var/lib/apt/lists/*
+
+COPY docker/supervisord.conf /etc/supervisord.conf
 
 ENV GST_PLUGIN_PATH=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/
 # Copying out our custom compositor from the build stage
