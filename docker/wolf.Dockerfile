@@ -96,6 +96,15 @@ RUN apt-get update -y && \
     libglvnd0 libgl1 libglx0 libegl1 libgles2 xwayland hwdata \
     && rm -rf /var/lib/apt/lists/*
 
+# Embedded PulseAudio: Wolf runs its own PulseAudio server inside this container
+# (started by startup.sh) so audio is available as soon as Wolf boots, without
+# the legacy external "WolfPulseAudio" sidecar container and its startup race.
+# pulseaudio-utils ships pactl, handy for debugging audio from inside the container.
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+    pulseaudio pulseaudio-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV GST_PLUGIN_PATH=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/
 # Copying out our custom compositor from the build stage
 COPY --from=wolf-builder /usr/local/lib/x86_64-linux-gnu/gstreamer-1.0/* $GST_PLUGIN_PATH
