@@ -51,7 +51,7 @@ inline bool wait_for_wayland_socket(std::string_view runtime_dir,
 
   auto socket_path = std::filesystem::path(runtime_dir) / socket_name;
   auto deadline = std::chrono::steady_clock::now() + timeout;
-  struct stat st{};
+  struct stat st {};
 
   while (std::chrono::steady_clock::now() < deadline) {
     if (stat(socket_path.c_str(), &st) == 0 && S_ISSOCK(st.st_mode)) {
