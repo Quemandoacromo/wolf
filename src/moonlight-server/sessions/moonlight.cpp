@@ -161,7 +161,7 @@ setup_moonlight_handlers(const immer::box<state::AppState> &app_state,
         }
 
         // TODO: timeout? What if the wayland display is never ready?
-        auto w_display_ready = on_ready->get_future().then([session](auto fut) {
+        auto w_display_ready = on_ready->get_future().then([session, runtime_dir](auto fut) {
           streaming::WaylandDisplayReady ready = fut.get();
 
           auto wl_state = virtual_display::create_wayland_display(ready.wayland_plugin, ready.wayland_socket_name);
@@ -172,6 +172,15 @@ setup_moonlight_handlers(const immer::box<state::AppState> &app_state,
           session->mouse->emplace(virtual_display::WaylandMouse(wl_state));
           session->keyboard->emplace(virtual_display::WaylandKeyboard(wl_state));
           session->touch_screen->emplace(virtual_display::WaylandTouchScreen(wl_state));
+
+          if (!wait_for_wayland_socket(runtime_dir, ready.wayland_socket_name)) {
+            logs::log(logs::error,
+                      "[STREAM_SESSION] Wayland socket {} was not ready, aborting runner startup",
+                      ready.wayland_socket_name);
+            session->event_bus->fire_event(
+                immer::box<events::StopStreamEvent>(events::StopStreamEvent{.session_id = session->session_id}));
+            return;
+          }
 
           logs::log(logs::debug, "[STREAM_SESSION] Start runner");
           session->event_bus->fire_event(immer::box<events::StartRunner>(

@@ -218,8 +218,9 @@ std::optional<Container> DockerAPI::create(const Container &container,
       merge_array(cfg, "Devices", json::value_from(container.devices).as_array());
       (*cfg)["PortBindings"] = json::value_from(container.ports);
     } else {
-      post_params["HostConfig"] =
-          json::object{{"Binds", container.mounts}, {"PortBindings", container.ports}, {"Devices", container.devices}};
+      post_params["HostConfig"] = json::object{{"Binds", json::value_from(container.mounts)},
+                                               {"PortBindings", json::value_from(container.ports)},
+                                               {"Devices", json::value_from(container.devices)}};
     }
 
     auto json_payload = json::serialize(post_params);
@@ -474,7 +475,7 @@ bool DockerAPI::exec(std::string_view id, const std::vector<std::string_view> &c
   if (auto conn = docker_connect(socket_path)) {
     auto api_url = fmt::format("http://localhost/{}/containers/{}/exec", docker_api_version, id);
     auto post_params = json::object{
-        {"Cmd", command},
+        {"Cmd", json::value_from(command)},
         {"User", user},
         {"AttachStdin", false},
         {"AttachStdout", true},
