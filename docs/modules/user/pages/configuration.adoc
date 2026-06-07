@@ -27,9 +27,13 @@ Wolf is configured via a TOML config file and some additional optional ENV varia
 |/tmp/sockets
 |The full path where PulseAudio and video sockets will reside, this path is expected to be present in the host and mounted in the Wolf container
 
+|PULSE_SERVER
+|_(unset)_
+|PulseAudio server Wolf streams audio from. Left unset, Wolf starts an embedded PulseAudio server inside its own container and uses that. Set it (e.g. to a host socket path) to stream from an external PulseAudio/PipeWire instead.
+
 |WOLF_PULSE_IMAGE
 |ghcr.io/games-on-whales/pulseaudio:master
-|The name of the PulseAudio image to be started (when no connection is available)
+|Fallback only: the PulseAudio image Wolf spins up as a sidecar container if neither the embedded server nor `PULSE_SERVER` is reachable
 
 |WOLF_STOP_CONTAINER_ON_EXIT
 |TRUE
