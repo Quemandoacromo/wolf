@@ -32,7 +32,7 @@ RUN apt-get update -y && \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="$HOME/.cargo/bin:${PATH}"
 
-ARG RUST_VERSION=1.91.1
+ARG RUST_VERSION=1.96.0
 ENV RUST_VERSION=$RUST_VERSION
 RUN rustup install $RUST_VERSION && rustup default $RUST_VERSION
 
@@ -43,11 +43,9 @@ RUN <<_GST_WAYLAND_DISPLAY
 
     git clone https://github.com/games-on-whales/gst-wayland-display
     cd gst-wayland-display
-    # Includes e89c1a2 (proper VideoFormat-from-fourcc): without it the
-    # compositor's AR24 CUDA buffers decode to black frames on NVIDIA, see #417.
-    git checkout c49af96
-    # Pinned to 0.10.20: 0.10.21+ requires rustc 1.92, upgrade RUST_VERSION above if unpinning
-    cargo install cargo-c@0.10.20 --locked
+    git checkout b15285a
+    # Pinned because it can cause issues when RUST_VERSION isn't the absolute latest
+    cargo install cargo-c@0.10.23 --locked
     cargo cinstall --features="cuda" --prefix=/usr/local/lib/x86_64-linux-gnu/ --libdir=/usr/local/lib/x86_64-linux-gnu/gstreamer-1.0
 _GST_WAYLAND_DISPLAY
 
