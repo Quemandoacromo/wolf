@@ -1847,7 +1847,7 @@
             "type": "string"
           },
           "session_id": {
-            "type": "integer"
+            "type": "string"
           },
           "encrypt_audio": {
             "type": "boolean"
@@ -1914,7 +1914,7 @@
             "type": "string"
           },
           "moonlight_session_id": {
-            "type": "integer"
+            "type": "string"
           },
           "pin": {
             "anyOf": [
@@ -1942,7 +1942,7 @@
             "type": "string"
           },
           "moonlight_session_id": {
-            "type": "integer"
+            "type": "string"
           }
         },
         "required": [
@@ -1987,7 +1987,7 @@
             "type": "string"
           },
           "session_id": {
-            "type": "integer"
+            "type": "string"
           },
           "port": {
             "type": "integer"

@@ -5,6 +5,7 @@
 
 #include <events/events.hpp>
 #include <rfl.hpp>
+#include <rfl/parsing/Parser.hpp>
 #include <state/serialised_config.hpp>
 
 namespace rfl {
@@ -212,5 +213,32 @@ template <> struct Reflector<std::size_t> {
     return std::stoull(v);
   }
 };
+
+namespace parsing {
+template <class ReaderType, class WriterType, class ProcessorsType>
+struct Parser<ReaderType, WriterType, std::size_t, ProcessorsType> {
+  using InputVarType = typename ReaderType::InputVarType;
+
+  static Result<std::size_t> read(const ReaderType &reader, const InputVarType &var) noexcept {
+    const auto to_size_t = [](const std::string &v) -> Result<std::size_t> {
+      try {
+        return std::stoull(v);
+      } catch (std::exception &e) {
+        return error(e.what());
+      }
+    };
+    return Parser<ReaderType, WriterType, std::string, ProcessorsType>::read(reader, var).and_then(to_size_t);
+  }
+
+  template <class ParentType>
+  static void write(const WriterType &writer, const std::size_t &v, const ParentType &parent) noexcept {
+    Parser<ReaderType, WriterType, std::string, ProcessorsType>::write(writer, std::to_string(v), parent);
+  }
+
+  static schema::Type to_schema(std::map<std::string, schema::Type> *definitions) {
+    return Parser<ReaderType, WriterType, std::string, ProcessorsType>::to_schema(definitions);
+  }
+};
+} // namespace parsing
 
 } // namespace rfl
