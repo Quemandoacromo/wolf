@@ -50,7 +50,7 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 
 std::shared_ptr<WClientState> w_get_state(std::shared_ptr<wl_display> wd) {
   struct wl_registry *registry = wl_display_get_registry(wd.get());
-  struct wl_registry_listener listener = {
+  static const struct wl_registry_listener listener = {
       [](void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version) {
         logs::log(logs::debug, "Got registry event: id={}, interface={}, version={}", id, interface, version);
         auto state = (WClientState *)data;
