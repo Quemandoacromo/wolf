@@ -400,6 +400,12 @@ std::string get_rtsp_ip_string(const std::string &local_ip, const events::Stream
   return use_fake_ip ? session.rtsp_fake_ip : local_ip;
 }
 
+// Forward declaration so launch() can delegate to resume() when a session is already running.
+void resume(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Response> &response,
+            const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Request> &request,
+            const state::PairedClient &current_client,
+            const immer::box<state::AppState> &state);
+
 void launch(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Response> &response,
             const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::Request> &request,
             const state::PairedClient &current_client,
@@ -413,6 +419,15 @@ void launch(const std::shared_ptr<typename SimpleWeb::Server<SimpleWeb::HTTPS>::
     server_error<SimpleWeb::HTTPS>(response);
     return;
   }
+
+  // Re-launching while a session is already running would start a second runner that removes the
+  // live container out from under the first one. Resume the existing session instead.
+  if (state::get_session_by_client(state->running_sessions->load(), current_client)) {
+    logs::log(logs::info, "[HTTP] Client already has a running session, resuming instead of relaunching");
+    resume(response, request, current_client, state);
+    return;
+  }
+
   auto client_ip = get_client_ip<SimpleWeb::HTTPS>(request);
   auto new_session = create_run_session(request->parse_query_string(), client_ip, current_client, state, app.value());
   state->event_bus->fire_event(immer::box<events::StreamSession>(*new_session));
