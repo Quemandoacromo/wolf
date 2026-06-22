@@ -58,6 +58,7 @@ struct PartialClientSettings {
   std::optional<float> mouse_acceleration;
   std::optional<float> v_scroll_acceleration;
   std::optional<float> h_scroll_acceleration;
+  std::optional<wolf::config::ControllerType> motion_controller_override;
 };
 
 struct UpdateClientSettingsRequest {

@@ -325,6 +325,37 @@ The available joypad types are:
 * `nintendo`
 * `ps`
 
+==== Auto-detection: UNKNOWN clients with motion get a DualSense
+
+Moonlight Android downgrades the reported controller type to `UNKNOWN` whenever the phone has sensors and the underlying pad isn't already a DualSense (see https://github.com/moonlight-stream/moonlight-android/blob/master/app/src/main/java/com/limelight/binding/input/ControllerHandler.java[`ControllerHandler.java`]) — the capability bits still advertise `GYRO` and `ACCELEROMETER`. Wolf's auto-detection treats this as the client signalling "I have motion data to give" and creates a PlayStation DualSense pad so the motion-request blocks actually fire and the gyro/accel data gets forwarded. Without this the type would fall through to Xbox and the motion would be silently dropped.
+
+Auto-detection only kicks in when there's no per-slot `controllers_override` and no per-client `motion_controller_override` (below). Both of those are explicit operator choices and win.
+
+==== Per-client `motion_controller_override`
+
+Sibling of `controllers_override`: same shape of "operator wants type X" but gated on the client actually having motion to forward. When `controllers_override[slot]` is unset, the client advertises `GYRO` / `ACCELEROMETER`, AND `motion_controller_override` is set to anything other than `auto`, Wolf creates that pad type instead of the auto-detected one. Useful to point motion-capable clients at a non-default device — for example forcing a Switch Pro pad (once the corresponding motion routing in `create_new_joypad` lands).
+
+[source,toml]
+....
+[[paired_clients]]
+# client_cert = ...
+[paired_clients.settings]
+motion_controller_override = "PS" # motion-capable clients get a DualSense
+....
+
+Available values are the same as `controllers_override` (`auto` (default) / `xbox` / `nintendo` / `ps`); `auto` defers to the auto-detection above.
+
+Precedence: per-slot `controllers_override` > per-client `motion_controller_override` > auto-detection.
+
+It is also exposed over the API:
+
+[source,bash]
+....
+curl --unix-socket /var/run/wolf/wolf.sock \
+     -X PATCH http://localhost/api/v1/clients/<client_id>/settings \
+     -d '{"settings": {"motion_controller_override": "PS"}}'
+....
+
 === Input mouse overrides
 
 You can increase and decrease the mouse acceleration and scroll speed for each paired client, ex:
