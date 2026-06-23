@@ -143,7 +143,8 @@ TEST_CASE("Pair APIs", "[API]") {
                       "\"controllers_override\":[\"PS\"],"
                       "\"mouse_acceleration\":2.5,"
                       "\"v_scroll_acceleration\":1.5,"
-                      "\"h_scroll_acceleration\":10.199999809265137}}]}"));
+                      "\"h_scroll_acceleration\":10.199999809265137,"
+                      "\"motion_controller_override\":\"AUTO\"}}]}"));
 
   auto pair_promise = std::make_shared<boost::promise<std::string>>();
 
