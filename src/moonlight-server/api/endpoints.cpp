@@ -576,8 +576,8 @@ void UnixSocketServer::endpoint_UpdateClientSettings(const HTTPRequest &req, std
           .mouse_acceleration = new_settings.mouse_acceleration.value_or(current_settings.mouse_acceleration),
           .v_scroll_acceleration = new_settings.v_scroll_acceleration.value_or(current_settings.v_scroll_acceleration),
           .h_scroll_acceleration = new_settings.h_scroll_acceleration.value_or(current_settings.h_scroll_acceleration),
-          .motion_controller_override = new_settings.motion_controller_override.value_or(
-              current_settings.motion_controller_override),
+          .motion_controller_override =
+              new_settings.motion_controller_override.value_or(current_settings.motion_controller_override),
       }};
 
   update_client_settings(this->state_->app_state->config, std::stoull(payload.client_id.value()), merged_client);
