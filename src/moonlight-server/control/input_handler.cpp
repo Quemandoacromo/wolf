@@ -59,19 +59,43 @@ std::shared_ptr<events::JoypadTypes> create_new_joypad(const events::StreamSessi
   auto final_type = controllers_override.size() > controller_number ? controllers_override[controller_number]
                                                                     : wolf::config::ControllerType::AUTO;
   if (final_type == wolf::config::ControllerType::AUTO) {
-    switch (requested_type) {
-    case XBOX:
-      final_type = wolf::config::ControllerType::XBOX;
-      break;
-    case PS:
-      final_type = wolf::config::ControllerType::PS;
-      break;
-    case NINTENDO:
-      final_type = wolf::config::ControllerType::NINTENDO;
-      break;
-    default:
-      final_type = wolf::config::ControllerType::AUTO;
-      break;
+    // Motion-gated per-client override. When this slot has no
+    // `controllers_override`, the client advertises GYRO or
+    // ACCELEROMETER, AND `motion_controller_override` is set to a
+    // specific type, route to that type. Sibling to
+    // `controllers_override` (unconditional force, per-slot), but
+    // gated on the client actually having motion to forward so
+    // non-motion clients are unaffected.
+    if ((capabilities & (ACCELEROMETER | GYRO)) &&
+        session.client_settings->motion_controller_override != wolf::config::ControllerType::AUTO) {
+      final_type = session.client_settings->motion_controller_override;
+    } else {
+      switch (requested_type) {
+      case XBOX:
+        final_type = wolf::config::ControllerType::XBOX;
+        break;
+      case PS:
+        final_type = wolf::config::ControllerType::PS;
+        break;
+      case NINTENDO:
+        final_type = wolf::config::ControllerType::NINTENDO;
+        break;
+      default:
+        // Client reported UNKNOWN. If it advertises GYRO or
+        // ACCELEROMETER (typically a phone with built-in sensors
+        // overlaying any underlying pad — see
+        // moonlight-android ControllerHandler.java:3148) promote to
+        // PS so the motion-request blocks below actually fire and the
+        // gyro/accel data the client is ready to send gets requested
+        // and forwarded. Without this it stays AUTO → XBOX and the
+        // motion is silently dropped.
+        if (capabilities & (ACCELEROMETER | GYRO)) {
+          final_type = wolf::config::ControllerType::PS;
+        } else {
+          final_type = wolf::config::ControllerType::AUTO;
+        }
+        break;
+      }
     }
   }
   switch (final_type) {

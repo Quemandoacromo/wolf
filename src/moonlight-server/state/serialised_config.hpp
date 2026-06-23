@@ -29,6 +29,16 @@ struct ClientSettings {
   float v_scroll_acceleration = 1.0;
   /* (horizontal scroll) Values above 1.0 will make it faster, between 0.0 and 1.0 will make it slower */
   float h_scroll_acceleration = 1.0;
+  /* Motion-capable virtual pad override. When `controllers_override[slot]`
+   * is unset, the client advertises GYRO/ACCELEROMETER, AND this is
+   * anything other than `AUTO`, Wolf creates this controller type
+   * instead of the auto-detected one. `AUTO` (default) defers to the
+   * auto-detection logic (which promotes UNKNOWN-with-motion clients
+   * to PS so motion routes — see `create_new_joypad` in
+   * control/input_handler.cpp). Sibling to `controllers_override`:
+   * same shape of "operator wants type X" but gated on the client
+   * actually having motion to forward. */
+  ControllerType motion_controller_override = ControllerType::AUTO;
 };
 
 struct PairedClient {
