@@ -56,6 +56,11 @@ TEST_CASE("Docker API", "[DOCKER]") {
   REQUIRE(!docker_api.remove_by_id(first_container->id)); // This container doesn't exist anymore
   REQUIRE(docker_api.remove_by_id(second_container->id));
 
+  // get_by_id() must return std::nullopt for a removed / non-existent container (not throw): the
+  // runner's monitor loop relies on this to stop cleanly instead of dereferencing an empty optional.
+  REQUIRE(!docker_api.get_by_id(second_container->id).has_value());
+  REQUIRE(!docker_api.get_by_id("0000000000000000000000000000000000000000000000000000000000000000").has_value());
+
   REQUIRE(docker_api.inspect_image("hello-world").has_value());
   REQUIRE(!docker_api.inspect_image("hello-world:non-existent-tag").has_value());
 }

@@ -279,7 +279,8 @@ void RunDocker::run(std::string_view session_id,
 
       std::this_thread::sleep_for(500ms);
 
-    } while (docker_api.get_by_id(container_id)->status == RUNNING);
+      // value_or() avoids dereferencing nullopt when the container was removed mid-session.
+    } while (docker_api.get_by_id(container_id).value_or(Container{.status = EXITED}).status == RUNNING);
 
     logs::log(logs::debug, "[DOCKER] Container logs: \n{}", docker_api.get_logs(container_id));
     logs::log(logs::debug, "[DOCKER] Stopping container: {}", docker_container->name);
